@@ -8,7 +8,9 @@ Pokémon-Sammlungsportal für zwei getrennte Konten mit Bildern, Kartennummer-Su
 - Zwei bestätigte Auth-Konten sind mit den Benutzernamen `nichtfabi` und `nichttobi` verknüpft.
 - Datenbank und Edge Function `pokevault` veröffentlicht.
 - Täglicher Preisauftrag aktiv: ab 08:00 deutscher Ortszeit, schrittweise bis zehn unterschiedliche Karten pro Minute.
-- Frontend für Vercel vorbereitet, noch nicht dort veröffentlicht. Echte Anmeldung im fertigen Portal und Preisabrufe mit einer realen Sammlung müssen nach der Veröffentlichung geprüft werden.
+- Live auf Vercel Hobby: https://cards-chi-dusky.vercel.app/
+- Vercel-API und Supabase-Datenbank in Frankfurt; automatische Veröffentlichung aus GitHub `main` geprüft.
+- Echter Passwort-Login als `nichttobi` und Suche nach Altaria-ex (Paradoxrift, 253/182) mit Bild und Cardmarket-Richtpreis erfolgreich geprüft. Die Sammlung ist noch leer; Speichern und Preisverlauf mit eigenen Karten stehen als Nutzungsprüfung aus.
 
 ## Vercel veröffentlichen
 
@@ -47,6 +49,6 @@ npm run build
 node scripts/check-supabase.mjs
 ```
 
-Der Prüflauf simuliert Auth-Antworten und prüft Kontotrennung, anonyme Zugriffssperre, fremde Sammlungen, Origin-Prüfung und Cron-Schutz. Die tatsächliche Datenbank wurde zusätzlich mit beiden Konto-Identitäten auf Isolation und auf verweigerte fremde Kartenreferenzen geprüft. Der veröffentlichte Server antwortet anonym mit 401; der interne Preisauftrag antwortet erfolgreich mit 200 bei noch leerer Sammlung. Dies ersetzt keinen echten Passwort-Login.
+Der Prüflauf simuliert Auth-Antworten und prüft Kontotrennung, anonyme Zugriffssperre, fremde Sammlungen, Origin-Prüfung und Cron-Schutz. Die tatsächliche Datenbank wurde zusätzlich mit beiden Konto-Identitäten auf Isolation und auf verweigerte fremde Kartenreferenzen geprüft. Der veröffentlichte Server antwortet anonym mit 401; der interne Preisauftrag antwortet erfolgreich mit 200 bei noch leerer Sammlung. Zusätzlich wurde der echte Passwort-Login als `nichttobi` im veröffentlichten Portal geprüft. Die Kartensuche zeigte Altaria-ex mit Bild und Richtpreis; keine Testkarte wurde gespeichert.
 
 Cloudflare-Dateien in `worker/`, `migrations/` und `wrangler.jsonc` bleiben vorerst als Referenz erhalten. Für Vercel werden sie nicht verwendet.
