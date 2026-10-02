@@ -1,0 +1,35 @@
+import {strict as assert} from 'node:assert';
+import {build} from 'esbuild';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+const temp=await mkdtemp(join(tmpdir(),'grading-check-'));
+await build({entryPoints:['supabase/functions/pokevault/graded-prices.ts'],bundle:true,platform:'node',format:'esm',outfile:join(temp,'prices.mjs')});
+await build({entryPoints:['supabase/functions/pokevault/grading.ts'],bundle:true,platform:'node',format:'esm',outfile:join(temp,'grading.mjs')});
+const {parseGrade,gradedValue}=await import(join(temp,'grading.mjs'));
+const {gradedPrice,extractGradedPrice,matchGradedCard}=await import(join(temp,'prices.mjs'));
+assert.equal(parseGrade('PSA 9.5'),null);assert.equal(parseGrade('AOG 9,5').referenceGrade,10);assert.equal(parseGrade('AOG 10').comparison,true);assert.equal(parseGrade('AOG 9').referenceCompany,'AOG');
+const card={id:'sv02-269',localId:'269',name:'Iono',set:{name:'Paldea Evolved'}};
+const row={id:1,name:'Iono',card_number:'269',episode:{name:'Paldea Evolved'},prices:{ebay:{currency:'USD',graded:{psa:{'10':{median_price:200,sample_size:5},'9':{median_price:100,sample_size:3}}}}}};
+assert.equal(matchGradedCard([row],card),row);
+assert.equal(matchGradedCard([row,{...row,id:2}],card),null);
+assert.equal(matchGradedCard([{...row,episode:{name:'Another set'}}],card),null);
+assert.equal(extractGradedPrice(row,'AOG 9.5').price,200);
+assert.equal(extractGradedPrice(row,'AOG 9'),null);
+assert.equal(extractGradedPrice({...row,prices:{ebay:{currency:'USD',graded:{psa:{'10':{median_price:200,sample_size:0}}}}}},'PSA 10'),null);
+let key='',calls=0,budget=0;
+globalThis.Deno={env:{get:n=>({GRADING_RAPIDAPI_KEY:key,SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_SECRET_KEYS:'{"default":"sb_secret_fixture"}'}[n])}};
+assert.equal((await gradedPrice(card.id,'de','AOG 9.5')).status,'not_configured');
+globalThis.fetch=async(input,opts={})=>{const u=new URL(input);
+ if(u.hostname==='api.tcgdex.net')return Response.json({...card,id:u.pathname.split('/').at(-1)});
+ if(u.pathname==='/rest/v1/rpc/portal_login_attempt'){budget++;return Response.json([{attempts:budget}]);}
+ if(u.hostname==='cardmarket-api-tcg.p.rapidapi.com'){calls++;assert.equal(opts.headers['x-rapidapi-key'],'fixture-only');assert.ok(!u.search.includes('fixture-only'));return Response.json({data:[row]});}
+ if(u.hostname==='www.ecb.europa.eu')return new Response(`<Cube time='${new Date().toISOString().slice(0,10)}'><Cube currency='USD' rate='2'/></Cube>`);
+ throw Error('Unexpected request '+u.hostname);
+};
+key='fixture-only';
+const q=await gradedPrice(card.id,'de','PSA 10');assert.equal(q.status,'available');assert.equal(q.priceEur,100);assert.equal(q.sales,5);assert.equal(q.languageScope,'international');
+const comparison=await gradedPrice(card.id,'de','AOG 9.5');assert.equal(comparison.priceEur,100);assert.equal(comparison.comparison,true);assert.equal(comparison.appliedGrading,'AOG 9.5');assert.equal(calls,1);
+assert.equal(gradedValue({gradedQuote:comparison},'AOG 9.5'),100);assert.equal(gradedValue({gradedQuote:comparison},'AOG 9'),null);assert.equal(gradedValue({gradedQuote:{status:'missing'}},'PSA 10'),null);
+budget=95;const capped=await gradedPrice('sv02-270','en','PSA 9');assert.equal(capped.status,'unavailable');assert.equal(calls,1);
+await rm(temp,{recursive:true,force:true});console.log('Passed grading: exact set/name/number matching, ambiguous rows rejected, AOG >=9.5 uses PSA 10, no AOG 9 substitution, sold sample required, currency conversion, shared cache, grading isolation, missing source and atomic daily cap.');
