@@ -2,11 +2,30 @@
   "framework": null,
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
-  "functions": {"api/proxy.ts": {"maxDuration": 60}},
+  "functions": {
+    "api/proxy.ts": {
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
-    {"source": "/api/auth/refresh", "destination": "/api/proxy?route=auth%2Frefresh"},
-    {"source": "/api/auth/logout", "destination": "/api/proxy?route=auth%2Flogout"},
-    {"source": "/api/auth", "destination": "/api/proxy?route=auth"},
-    {"source": "/api/vault", "destination": "/api/proxy?route=vault"}
+    {
+      "source": "/api/auth/refresh",
+      "destination": "/api/proxy?route=auth%2Frefresh"
+    },
+    {
+      "source": "/api/auth/logout",
+      "destination": "/api/proxy?route=auth%2Flogout"
+    },
+    {
+      "source": "/api/auth",
+      "destination": "/api/proxy?route=auth"
+    },
+    {
+      "source": "/api/vault",
+      "destination": "/api/proxy?route=vault"
+    }
+  ],
+  "regions": [
+    "fra1"
   ]
 }
