@@ -18,8 +18,8 @@ export async function GET(request:Request){
  if(op==='photo'){
  const id=u.searchParams.get('id')||'';if(!/^[a-zA-Z0-9-]{1,100}$/.test(id))return json({error:'Ungültige Karte.'},400);
  const d=db(),row=await d.prepare('SELECT * FROM card_images WHERE id = ?').bind(id).first()||await d.prepare('SELECT * FROM cards WHERE id = ?').bind(id).first();const accounts=(await d.prepare('SELECT user_id, username FROM portal_accounts').all()).results.filter((a:any)=>a.user_id);
- if(!row||accounts.length!==2||!accounts.some((a:any)=>a.user_id===row.owner))return json({error:'Foto nicht verfügbar.'},404);
- if(row.card_id&&row.owner!==user.userId){const shared=await d.prepare('SELECT id FROM cards WHERE owner = ? AND card_id = ? AND language = ?').bind(row.owner,row.card_id,row.language).first();if(!shared)return json({error:'Foto nicht verfügbar.'},404);}
+ if(!row||accounts.length!==2||!accounts.some((a:any)=>a.user_id===row.owner)||!accounts.some((a:any)=>a.user_id===user.userId))return json({error:'Foto nicht verfügbar.'},404);
+
  return json({image:await photoUrl(row)});
  }
  if(op==='community'){
@@ -27,7 +27,7 @@ export async function GET(request:Request){
  if(accounts.length!==2||!accounts.some((a:any)=>a.user_id===user.userId))return json({error:'Gemeinsamer Bereich nicht verfügbar.'},403);
  const collectors=await Promise.all(accounts.map(async(a:any)=>{
  const [collections,cards]=await Promise.all([d.prepare('SELECT * FROM collections WHERE owner = ? ORDER BY created').bind(a.user_id).all(),d.prepare('SELECT * FROM cards WHERE owner = ? ORDER BY fetched DESC').bind(a.user_id).all()]);
- return {username:a.username,collections:collections.results.map((c:any)=>({id:c.id,name:c.name})),cards:(await withPhotos(cards.results)).map((r:any)=>{const data=JSON.parse(r.data),market=quote(data,r.variant);return {id:r.id,collection_id:r.collection_id,quantity:r.quantity,language:r.language,variant:r.variant,condition:r.condition,grading:r.grading,data:attachImage({...data,customImageUrl:r.customImageUrl,customPhotoId:r.customPhotoId},r.language),valueCents:r.manual_cents!==null?r.manual_cents:r.grading?null:market.price===null?null:Math.round(market.price*100),valueSource:r.manual_cents!==null?'Eigener Wert':r.grading?'Grading: Wert offen':'Cardmarket-Trend',priceDate:market.updated};})};
+ return {username:a.username,collections:collections.results.map((c:any)=>({id:c.id,name:c.name})),cards:(await withPhotos(cards.results)).map((r:any)=>{const data=JSON.parse(r.data),market=quote(data,r.variant);return {id:r.id,collection_id:r.collection_id,quantity:r.quantity,language:r.language,variant:r.variant,condition:r.condition,grading:r.grading,data:attachImage({...data,customImageUrl:r.customImageUrl,customPhotoId:r.customPhotoId,customImageShared:r.customImageShared},r.language),valueCents:r.manual_cents!==null?r.manual_cents:r.grading?null:market.price===null?null:Math.round(market.price*100),valueSource:r.manual_cents!==null?'Eigener Wert':r.grading?'Grading: Wert offen':'Cardmarket-Trend',priceDate:market.updated};})};
  }));return json({collectors,today:today()});
  }
  if(op==='sets'){const sets=await catalog('sets',lang);return json(sets.filter(physical).reverse());}
@@ -45,7 +45,7 @@ export async function GET(request:Request){
  return json(await catalogPhotos((await searchCards(q,lang,set||'',u.searchParams.get('type')==='promo')).map((c:any)=>attachImage(c,lang)),user.userId,lang));
  }
  const d=db();const [collections,cards,history]=await Promise.all([d.prepare('SELECT * FROM collections WHERE owner = ? ORDER BY created').bind(user.userId).all(),d.prepare('SELECT * FROM cards WHERE owner = ? ORDER BY fetched DESC').bind(user.userId).all(),d.prepare('SELECT * FROM portfolio_snapshots WHERE owner = ? ORDER BY day').bind(user.userId).all()]);
- return json({collections:collections.results,cards:(await withPhotos(cards.results)).map((r:any)=>({...decode(r),data:attachImage({...JSON.parse(r.data),customImageUrl:r.customImageUrl,customPhotoId:r.customPhotoId},r.language)})),history:history.results,today:today()});
+ return json({collections:collections.results,cards:(await withPhotos(cards.results)).map((r:any)=>({...decode(r),data:attachImage({...JSON.parse(r.data),customImageUrl:r.customImageUrl,customPhotoId:r.customPhotoId,customImageShared:r.customImageShared},r.language)})),history:history.results,today:today()});
  }catch(e){console.error(e);return json({error:e instanceof Error?e.message:'Abruf fehlgeschlagen.'},503);}
 }
 export async function POST(request:Request){
