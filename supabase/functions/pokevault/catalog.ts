@@ -1,7 +1,7 @@
 import {tcg} from './data.ts';
 const cache=new Map<string,{expires:number,data:any}>();
 export async function catalog(path:string,lang:string){const key=lang+'/'+path,hit=cache.get(key);if(hit&&hit.expires>Date.now())return hit.data;const data=await tcg(path,lang);if(cache.size>100)cache.clear();cache.set(key,{data,expires:Date.now()+600000});return data;}
-export const physical=(c:any)=>!/^A\d|^P-A/.test(c.id);
+export const physical=(c:any)=>!/^[A-Z]\d|^P-A/.test(c.id);
 export const promo=(s:any)=>/promo/i.test(s.name)||['basep','dpp','hgssp','bwp','xyp','smp','swshp','svp','mep'].includes(s.id);
 export function parseNumber(q:string){const text=q.split('/')[0].trim().toUpperCase().replace(/[\s-]/g,'');const m=text.match(/^(SVP|MEP|SWSH|SM|XY|BW|HGSS|DP)(\d+)$/);const prefixSets:Record<string,string>={SVP:'svp',MEP:'mep',SWSH:'swshp',SM:'smp',XY:'xyp',BW:'bwp',HGSS:'hgssp',DP:'dpp'};return {text,set:m?prefixSets[m[1]]:'',number:m?(['SVP','MEP'].includes(m[1])?m[2].padStart(3,'0'):m[1]+m[2].padStart(['SWSH','SM'].includes(m[1])?3:2,'0')):text};}
 export function matches(c:any,q:string){const n=parseNumber(q).number,local=String(c.localId).toUpperCase();return /^\d+$/.test(n)?/^\d+$/.test(local)&&Number(local)===Number(n):local===n||String(c.name).toLocaleLowerCase().includes(q.toLocaleLowerCase());}

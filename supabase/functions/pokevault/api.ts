@@ -1,6 +1,7 @@
 import {getUser} from './auth.ts';
 import { db, tcg } from './data.ts';
 import {catalog,physical,searchCards,alternateImage} from './catalog.ts';
+import {quote} from './pricing.ts';
 import {snapshot,refresh,today} from './history.ts';
 export const dynamic='force-dynamic';
 const json=(v:any,status=200)=>Response.json(v,{status});
@@ -12,6 +13,8 @@ export async function GET(request:Request){
  const u=new URL(request.url),op=u.searchParams.get('op')||'state',lang=u.searchParams.get('lang')||'de';
  if(!langs.includes(lang))return json({error:'Ungültige Sprache.'},400);
  if(op==='sets'){const sets=await catalog('sets',lang);return json(sets.filter(physical).reverse());}
+ if(op==='set'){const id=u.searchParams.get('id')||'';if(!/^[a-zA-Z0-9.-]+$/.test(id)||!physical({id}))return json({error:'Ungültiges Set.'},400);return json(await catalog('sets/'+id,lang));}
+ if(op==='prices'){const ids=[...new Set((u.searchParams.get('ids')||'').split(','))];if(ids.length>6||ids.some(id=>!id||id.length>100||! /^[a-zA-Z0-9.-]+$/.test(id)||!physical({id})))return json({error:'Ungültige Kartenliste.'},400);return json(await Promise.all(ids.map(async id=>{try{const c=await catalog('cards/'+id,lang);const variant=c.variants_detailed?.[0]?.variantId||c.variants_detailed?.[0]?.type||'Standard';return {id,...quote(c,variant)};}catch{return {id,error:true};}})));}
  if(op==='detail'){const id=u.searchParams.get('id')||'';if(!/^[a-zA-Z0-9.-]+$/.test(id))return json({error:'Ungültige Karten-ID.'},400);return json(await tcg(`cards/${id}`,lang));}
  if(op==='image'){const id=u.searchParams.get('id')||'';if(!/^[a-zA-Z0-9.-]+$/.test(id))return json({error:'Ungültige Karten-ID.'},400);return json(await alternateImage(id,lang));}
  if(op==='search'){
