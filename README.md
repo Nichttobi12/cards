@@ -1,11 +1,11 @@
 # PokéVault für Cloudflare Free
 
-Vorbereitetes Umzugspaket für Tobias: zwei getrennte Benutzerkonten, Pokémon-Karten mit Bildern, mehrere Sammlungen, Cardmarket-Richtpreise via TCGdex und täglicher Portfolio-Chart. Dieses Paket ist noch nicht in einem GitHub-Repository oder auf deinem Cloudflare-Konto veröffentlicht. Die Anmeldung mit deinem realen Supabase-Projekt ist noch nicht geprüft.
+Vorbereitetes Umzugspaket für Tobias: zwei getrennte Benutzerkonten, Pokémon-Karten mit Bildern, mehrere Sammlungen, Cardmarket-Richtpreise via TCGdex und täglicher Portfolio-Chart. Der Quellcode liegt im GitHub-Repository `Nichttobi12/cards`. Das Portal ist noch nicht auf deinem Cloudflare-Konto veröffentlicht. Die Anmeldung mit deinem realen Supabase-Projekt ist noch nicht geprüft.
 
 ## Voraussetzungen
 
 - Cloudflare-Konto im Workers Free-Tarif.
-- GitHub-Konto mit privatem Repository für diesen Code.
+- GitHub-Konto mit dem Repository `cards` für diesen Code. Zugangsdaten und Sammlungsdaten gehören nicht in das Repository.
 - Supabase-Projekt im Free-Tarif. Keine eigene Domain und kein Clerk-Konto erforderlich.
 - Aktuelles Node.js (mindestens 22.13). Der Code ist eine React-Anwendung mit einem kleinen Cloudflare Worker; keine ChatGPT-Anmeldung.
 
@@ -28,7 +28,7 @@ Die Supabase-Datenbank wird vom Portal nicht für Kartendaten verwendet. Deshalb
 
 ## 3. GitHub und Cloudflare verbinden
 
-1. Ein privates GitHub-Repository `pokevault` erstellen. Den INHALT dieses Ordners im Stammverzeichnis hochladen; `package.json` und `wrangler.jsonc` müssen direkt im Repository-Stamm liegen.
+1. Das bestehende GitHub-Repository `Nichttobi12/cards` verwenden. Der Code liegt bereits im Stammverzeichnis; `package.json` und `wrangler.jsonc` müssen direkt im Repository-Stamm liegen.
 2. Cloudflare → Workers & Pages → Create application → Import a repository → Get started.
 3. GitHub verbinden und das Repository auswählen.
 4. Worker-Name: **pokevault** (muss dem Namen in `wrangler.jsonc` entsprechen).
@@ -93,4 +93,4 @@ Spätere Updates: Code ändern → in den verbundenen Produktionsbranch hochlade
 
 ## Verifikation dieses Pakets
 
-TypeScript- und Build-Prüfungen, Migrationen und Datenimport wurden lokal geprüft. Ein isolierter Worker-Test mit simulierten Supabase-Antworten bestätigt: anonymer Zugriff abgewiesen, beide Konten getrennt, fremde Sammlungen abgewiesen und fremde Origin bei der Anmeldung abgewiesen. Dieser Test ersetzt keinen echten Supabase-Login. Die tatsächlichen beiden Supabase-Anmeldungen, Cloudflare-CPU-Nutzung, GitHub-Schreibrechte und öffentliche Veröffentlichung benötigen die noch fehlende Projektverbindung und Laufzeitkonfiguration.
+TypeScript- und Build-Prüfungen, Migrationen und Datenimport wurden lokal geprüft. Ein isolierter Worker-Test mit simulierten Supabase-Antworten bestätigt: anonymer Zugriff abgewiesen, beide Konten getrennt, fremde Sammlungen abgewiesen und fremde Origin bei der Anmeldung abgewiesen. Dieser Test ersetzt keinen echten Supabase-Login. Die tatsächlichen beiden Supabase-Anmeldungen, Cloudflare-CPU-Nutzung, öffentliche Veröffentlichung benötigen die noch fehlende Cloudflare-Verbindung und Laufzeitkonfiguration. Der GitHub-Upload wurde geprüft.
