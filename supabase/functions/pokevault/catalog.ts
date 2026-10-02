@@ -16,3 +16,5 @@ export async function searchCards(q:string,lang:string,setId:string,onlyPromo:bo
  return rows.filter(physical).slice(0,60);
 }
 export async function alternateImage(id:string,lang:string){const alternate=lang==='en'?'de':'en';try{const c=await catalog('cards/'+id,alternate);return {image:c.image||null,language:alternate};}catch{return {image:null};}}
+
+export async function scanCards(number:string,name:string,lang:string,setId:string){const numberQuery=number.split('/')[0].trim();if(!numberQuery)return searchCards(name,lang,setId,false);const parsed=parseNumber(numberQuery);setId=setId||parsed.set;const cards=setId?(await catalog('sets/'+setId,lang)).cards:await catalog('cards',lang);let rows=[...cards].reverse().filter((c:any)=>physical(c)&&matches(c,numberQuery));if(name){const ranked=rankNames(rows,name,(c:any)=>c.name);if(ranked.length)rows=ranked;}return rows.slice(0,60);}

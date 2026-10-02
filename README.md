@@ -74,3 +74,13 @@ Der Kartenkatalog lädt im Hintergrund die Metadaten des gesamten geöffneten Se
 `verified-images.ts` enthält ausschließlich Bildadressen mit bestätigter Bildantwort für die genaue Karten-ID. Ersatzbilder in der anderen Sprache sind gekennzeichnet. Set-Ordner zeigen eine echte Karte aus dem Set. Weitere Metadaten bleiben beim Anbieter abrufbar; für vollständige Bildlücken bleibt das eigene Kartenfoto möglich.
 
 Image verification snapshot: 400 DE/EN rarity records processed on 2026-10-02; verified images are assigned to 248 distinct printed card IDs (496 language records including labeled alternate-language previews). This is a partial audit, not a guarantee of complete catalog image coverage. Remaining cards retain provider URLs and exact-ID alternate-language fallback. `scripts/image-audit.json` records the scope and unresolved source checks. Mega Zeraora ex, Pitch Black #114, uses the image explicitly linked by its Serebii card page.
+
+## Persistent images and camera search
+
+`supabase/persistent-card-images.sql` creates the private `card_images` table and copies existing image references without removing collection entries or storage objects. Photos are keyed by account, printed card ID and language, independent of collection rows. The catalog, search, metadata and saved-card views all resolve the same reference. Removing a collection row never deletes its catalog image. Shared views retain access only while the owning account has that card in its collection. Image uploads can be made from the card detail before adding a collection entry.
+
+The detail dialog uses one bounded, touch-scrollable body with dynamic viewport sizing. Image upload and camera capture are placed beside the preview.
+
+Camera search uses pinned Tesseract.js 6.0.1 loaded on demand from jsDelivr. OCR runs locally on the device; the image is not sent to an OCR service or automatically saved. Users can correct the recognized name/number, search matching catalog entries, then confirm the print and collection before saving. An internet connection is needed for the initial OCR engine/language downloads and catalog lookup. A browser camera file picker (`capture=environment`) supports iPhone capture and desktop photo selection. Optical recognition depends on lighting, reflections and sharpness; manual input remains available on download or recognition errors.
+
+Checks: `node scripts/check-supabase.mjs` covers persistence across delete/re-add, pre-add uploads, account/language isolation and shared image authorization. `node scripts/check-scanner.mjs` covers OCR text parsing; build checks TypeScript and JSX. Actual iPhone capture/recognition remains to be verified on a device.

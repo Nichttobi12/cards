@@ -1,0 +1,17 @@
+import {strict as assert} from 'node:assert';
+import {build} from 'esbuild';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const dir=await mkdtemp(join(tmpdir(),'pokevault-scan-'));
+const file=join(dir,'scan.mjs');
+await build({entryPoints:['src/scan-text.ts'],bundle:true,platform:'node',format:'esm',outfile:file});
+const {scanText}=await import(file);
+assert.deepEqual(scanText('Mega-Gengar-ex HP 350\nNightmare\n284/217'),{number:'284',name:'Mega-Gengar-ex'});
+assert.deepEqual(scanText('Basis\nPikachu KP 70\nSVP 027\n©2026'),{number:'SVP 027',name:'Pikachu'});
+assert.equal(scanText('Charizard ex\nDamage\n199 / 165').number,'199');
+assert.equal(scanText('Gardevoir ex\nSV049/SV122').number,'SV049');
+assert.equal(scanText('Mega-Gengar ex HP 350\nMEG EN 284/217').number,'284');
+assert.deepEqual(scanText(''),{number:'',name:''});
+await rm(dir,{recursive:true,force:true});
+console.log('Passed scan text: German/English names, HP/KP stripping, printed numbers, promo IDs, subset numbering and empty recognition.');
