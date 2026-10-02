@@ -1,0 +1,11 @@
+// Provider responses below are local fixtures, not a live Supabase login test.
+import {Miniflare} from 'miniflare';
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const mf=new Miniflare({modules:true,scriptPath:'dist/worker/index.js',compatibilityDate:'2026-05-15',cf:false,d1Databases:{DB:'test'},bindings:{SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_PUBLISHABLE_KEY:'fixture-publishable',USER_ACCOUNTS_JSON:JSON.stringify({Tobias:'one@example.com',Sammler2:'two@example.com'})},outboundService:async r=>{const token=r.headers.get('Authorization')?.replace('Bearer ','');if(token==='one'||token==='two')return Response.json({id:token,email:token==='one'?'one@example.com':'two@example.com'});return Response.json({error:'Invalid token'},{status:401});}});
+try{const d=await mf.getD1Database('DB');for(const name of fs.readdirSync('migrations').sort()){for(const sql of fs.readFileSync('migrations/'+name,'utf8').split(';').filter(s=>s.trim()))await d.prepare(sql).run();}await d.prepare('INSERT INTO collections (id,owner,name,created) VALUES (?,?,?,?)').bind('c1','one','Tobias','today').run();await d.prepare('INSERT INTO collections (id,owner,name,created) VALUES (?,?,?,?)').bind('c2','two','Sammler2','today').run();
+const anon=await mf.dispatchFetch('https://portal.example/api/vault');assert.equal(anon.status,401);
+for(const token of ['one','two']){const r=await mf.dispatchFetch('https://portal.example/api/vault',{headers:{cookie:'__Host-pv-access='+token}});assert.equal(r.status,200);const data=await r.json();assert.equal(data.collections.length,1);assert.equal(data.collections[0].owner,token);}
+const denied=await mf.dispatchFetch('https://portal.example/api/auth',{method:'POST',headers:{Origin:'https://other.example','Content-Type':'application/json'},body:'{}'});assert.equal(denied.status,403);
+const foreign=await mf.dispatchFetch('https://portal.example/api/vault',{method:'POST',headers:{cookie:'__Host-pv-access=one','Content-Type':'application/json'},body:JSON.stringify({op:'add',collectionId:'c2',quantity:1})});assert.equal(foreign.status,400);
+console.log('Pass: anonymous access rejected, both owners isolated, CSRF rejected, foreign collection rejected.');}finally{await mf.dispose();}
