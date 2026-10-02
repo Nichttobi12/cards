@@ -17,4 +17,8 @@ assert.deepEqual((await searchCards('27','de','',false)).map(c=>c.id),['svp-027'
 assert.equal((await searchCards('qqqqq','de','',false)).length,0);
 console.log('Passed fuzzy names: missing hyphens, case, short typo, transposition, irrelevant names rejected and exact numeric IDs.');
 console.log('Passed promo catalog: recent sets first, 60 result limit, exact numbers, Pocket excluded.');
+await build({entryPoints:['supabase/functions/pokevault/search.ts'],bundle:true,platform:'node',format:'esm',outfile:join(temp,'query.mjs')});const {parseCardQuery,cardMatches}=await import(join(temp,'query.mjs'));const pikachu={id:'me01-181',localId:'181',name:'Pikachu',set:{cardCount:{official:132}}};
+for(const q of ['Pikachu 181/132','181/132 Pikachu','pikachu 181','181 / 132'])assert.ok(cardMatches(pikachu,q));
+assert.equal(cardMatches(pikachu,'Pikachu 182/132'),false);assert.equal(cardMatches(pikachu,'Pikachu 181/217'),false);assert.equal(cardMatches(pikachu,'Raichu 181/132'),false);assert.equal(parseCardQuery('Porygon2').number,'');assert.equal(parseCardQuery('Pikachu SVP 027').set,'svp');assert.ok(cardMatches(pikachu,'me01-181'));
+console.log('Passed combined queries: name + number + printed denominator, either order, exact IDs and no false matches for a different print/name.');
 await rm(temp,{recursive:true,force:true});

@@ -10,7 +10,7 @@ import ThemeToggle from './theme';
 import Community from './community';
 import PhotoUpload from './photo-upload';
 import GradingHelper from './grading-helper';
-import {nameScore,normalize} from '../supabase/functions/pokevault/search';
+import {nameScore,normalize,cardMatches} from '../supabase/functions/pokevault/search';
 import CardImage,{cardNumber} from './card-image';
 const isPromo=(s:any)=>/promo/i.test(s.name)||['basep','dpp','hgssp','bwp','xyp','smp','swshp','svp','mep'].includes(s.id);
 const eur=(n:number)=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n);
@@ -31,7 +31,7 @@ export default function Vault({username,onLogout}:{username:string,onLogout:()=>
  const reload=async()=>{const s=await api();setState(s);return s;};
  useEffect(()=>{reload().catch(e=>setError(e.message)).finally(()=>setLoading(false));},[]);
 
- const rows=state.cards.filter((r:any)=>(active==='all'||r.collection_id===active)&&(!filter||(Number.isFinite(nameScore(r.data.name,filter))||normalize(`${r.data.localId} ${r.data.set?.name}`).includes(normalize(filter))))).filter((r:any)=>matchesType(r.data,type)&&(rarity==='all'||(rarity==='chase'?isChase(r.data.rarity):r.data.rarity===rarity))).sort((a:any,b:any)=>sort==='new'?0:compareCards(a.data,b.data,sort,c=>{const row=state.cards.find((r:any)=>r.data===c);return row?value(row):null;}));
+ const rows=state.cards.filter((r:any)=>(active==='all'||r.collection_id===active)&&(!filter||(cardMatches(r.data,filter)||normalize(r.data.set?.name||'').includes(normalize(filter))))).filter((r:any)=>matchesType(r.data,type)&&(rarity==='all'||(rarity==='chase'?isChase(r.data.rarity):r.data.rarity===rarity))).sort((a:any,b:any)=>sort==='new'?0:compareCards(a.data,b.data,sort,c=>{const row=state.cards.find((r:any)=>r.data===c);return row?value(row):null;}));
  const scoped=state.cards.filter((r:any)=>active==='all'||r.collection_id===active),count=scoped.reduce((s:number,r:any)=>s+r.quantity,0),priced=scoped.filter((r:any)=>value(r)!==null),total=priced.reduce((s:number,r:any)=>s+(value(r)??0)*r.quantity,0),cost=scoped.reduce((s:number,r:any)=>s+(r.cost_cents||0)/100*r.quantity,0),comparable=scoped.filter((r:any)=>value(r)!==null&&r.cost_cents!==null),diff=comparable.reduce((s:number,r:any)=>s+((value(r)??0)-r.cost_cents/100)*r.quantity,0);
  const act=async(fn:()=>Promise<any>)=>{setBusy(true);setError('');setNotice('');try{await fn();}catch(e:any){setError(e.message);}finally{setBusy(false);}};
  const openAdd=()=>{setCatalogSeed(null);setCatalogKey(k=>k+1);catalogPosition.current=0;setAddedNotice('');setModal(true);setMobileMenu(false);setDetail(null);setEdit(null);setError('');};
