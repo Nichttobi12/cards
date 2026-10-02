@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const dir=await mkdtemp(join(tmpdir(),'card-sort-'));await build({entryPoints:['src/card-tools.tsx'],bundle:true,platform:'node',format:'esm',outfile:join(dir,'tools.mjs')});const {compareCards,isChase,matchesType}=await import(join(dir,'tools.mjs'));
+const cards=[{id:'x-100',name:'C',localId:'100',types:['Wasser'],price:2},{id:'x-3',name:'A',localId:'3',types:['Feuer'],price:20},{id:'x-27',name:'B',localId:'027',types:['Pflanze'],price:0},{id:'x-5',name:'D',localId:'5',price:null}];
+const order=sort=>[...cards].sort((a,b)=>compareCards(a,b,sort,c=>c.price)).map(c=>c.id);
+assert.deepEqual(order('number-asc'),['x-3','x-5','x-27','x-100']);assert.deepEqual(order('number-desc'),['x-100','x-27','x-5','x-3']);assert.deepEqual(order('price-asc'),['x-27','x-100','x-3','x-5']);assert.deepEqual(order('price-desc'),['x-3','x-100','x-27','x-5']);assert.equal(order('type-asc')[0],'x-3');assert.equal(order('name-desc')[0],'x-5');
+for(const r of ['Selten, besondere Illustration','Special illustration rare','SAR','Mega Hyper Selten','Hyperselten','Secret Rare','Versteckt Selten'])assert.ok(isChase(r));assert.ok(!isChase('Häufig'));assert.ok(!isChase('Ultra Selten'));
+assert.ok(matchesType({types:['Feuer','Wasser']},'Feuer'));assert.ok(matchesType({category:'Trainer'},'Trainer'));assert.ok(!matchesType({types:['Feuer']},'Wasser'));assert.ok(matchesType({types:['Darkness']},'Unlicht'));assert.ok(matchesType({category:'Energy'},'Energie'));
+await rm(dir,{recursive:true,force:true});console.log('Passed numeric card ordering, ascending/descending prices, zero values, missing prices last, types, names and DE/EN chase rarity filters.');

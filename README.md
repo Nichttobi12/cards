@@ -64,3 +64,13 @@ Cloudflare-Dateien in `worker/`, `migrations/` und `wrangler.jsonc` bleiben vore
 Bei verfügbaren Anbieterbildern werden WebP, PNG und JPEG versucht, danach die andere Sprache derselben Karten-ID. Die Ersatzsprache ist gekennzeichnet; Sprache und Preise bleiben unverändert. Fehlende Bilder werden nicht durch Bilder anderer Karten ersetzt. Eine gespeicherte Karte kann beim Bearbeiten ein eigenes Foto erhalten. Der Browser skaliert es auf maximal 1200 Pixel und erzeugt JPEG ohne Original-Metadaten, der Server begrenzt Uploads auf 1 MB und prüft den Eigentümer. Neue Uploads ersetzen das vorherige Foto. Ohne eigenes Foto bleiben tatsächliche Lücken des Kartenanbieters sichtbar.
 
 Migration: `supabase/migrations/202610022015_private_card_photos.sql`. Vor dem Edge-Deploy anwenden. Der Bucket bleibt privat und hat keine öffentlichen oder allgemeinen Auth-Policies; Zugriff erfolgt ausschließlich über die verifizierte Portal-API.
+
+## Sets, Bilder und Filter
+
+Der Kartenkatalog lädt im Hintergrund die Metadaten des gesamten geöffneten Sets in begrenzten Sechser-Batches. Preis, Nummer, Name und Kartentyp lassen sich auf- und absteigend sortieren; Typ und Seltenheit sind filterbar. SAR/SIR, Hyper Rare und Secret Rare werden in einem gemeinsamen Filter hervorgehoben. Bis alle Preise geladen sind, zeigt die Oberfläche den Fortschritt und kennzeichnet die noch vorläufige Preisreihenfolge. Preise gelten pro Karte; fehlende Werte bleiben in beiden Richtungen am Ende.
+
+`Sammlungen & Freunde` öffnet zunächst das andere Konto und bietet eine ausdrückliche Kontoauswahl. Beide Sammlungsansichten unterstützen dieselben Filter und Sortierungen.
+
+`verified-images.ts` enthält ausschließlich Bildadressen mit bestätigter Bildantwort für die genaue Karten-ID. Ersatzbilder in der anderen Sprache sind gekennzeichnet. Set-Ordner zeigen eine echte Karte aus dem Set. Weitere Metadaten bleiben beim Anbieter abrufbar; für vollständige Bildlücken bleibt das eigene Kartenfoto möglich.
+
+Image verification snapshot: 400 DE/EN rarity records processed on 2026-10-02; verified images are assigned to 248 distinct printed card IDs (496 language records including labeled alternate-language previews). This is a partial audit, not a guarantee of complete catalog image coverage. Remaining cards retain provider URLs and exact-ID alternate-language fallback. `scripts/image-audit.json` records the scope and unresolved source checks. Mega Zeraora ex, Pitch Black #114, uses the image explicitly linked by its Serebii card page.
