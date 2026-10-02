@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+const temp=await mkdtemp(join(tmpdir(),'pokevault-promos-'));
+await build({entryPoints:['supabase/functions/pokevault/catalog.ts'],bundle:true,platform:'node',format:'esm',outfile:join(temp,'catalog.mjs')});
+const cards=set=>Array.from({length:40},(_,i)=>({id:set+'-'+String(i+1).padStart(3,'0'),localId:String(i+1).padStart(3,'0'),name:'Pikachu'}));
+globalThis.fetch=async url=>{const path=new URL(url).pathname;if(path.endsWith('/sets'))return Response.json([{id:'basep',name:'Old Promos'},{id:'svp',name:'SVP Black Star Promos'},{id:'P-A',name:'Pocket Promos'}]);return Response.json({name:path.endsWith('svp')?'SVP Black Star Promos':'Old Promos',cards:cards(path.split('/').at(-1))});};
+const {searchCards}=await import(join(temp,'catalog.mjs'));
+const results=await searchCards('Pikachu','de','',true);
+assert.equal(results.length,60);assert.equal(results[0].id,'svp-001');assert.ok(results.some(c=>c.id==='svp-027'));assert.ok(results.every(c=>!c.id.startsWith('P-A')));
+const number=await searchCards('27','de','',true);assert.deepEqual(number.map(c=>c.id),['svp-027','basep-027']);
+console.log('Passed promo catalog: recent sets first, 60 result limit, exact numbers, Pocket excluded.');
+await rm(temp,{recursive:true,force:true});

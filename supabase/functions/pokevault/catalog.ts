@@ -8,7 +8,7 @@ export function matches(c:any,q:string){const n=parseNumber(q).number,local=Stri
 export async function searchCards(q:string,lang:string,setId:string,onlyPromo:boolean){
  const parsed=parseNumber(q);setId=setId||parsed.set;let rows:any[];
  if(setId){const s=await catalog('sets/'+setId,lang);rows=s.cards.filter((c:any)=>matches(c,q)).map((c:any)=>({...c,setName:s.name}));}
- else if(onlyPromo){const sets=(await catalog('sets',lang)).filter((s:any)=>physical(s)&&promo(s));rows=[];for(let i=0;i<sets.length;i+=4){const batches=await Promise.all(sets.slice(i,i+4).map(async(s:any)=>{const detail=await catalog('sets/'+s.id,lang);return detail.cards.filter((c:any)=>matches(c,q)).map((c:any)=>({...c,setName:s.name}));}));rows.push(...batches.flat());}}
+ else if(onlyPromo){const sets=(await catalog('sets',lang)).filter((s:any)=>physical(s)&&promo(s)).reverse();rows=[];for(let i=0;i<sets.length;i+=4){const batches=await Promise.all(sets.slice(i,i+4).map(async(s:any)=>{const detail=await catalog('sets/'+s.id,lang);return detail.cards.filter((c:any)=>matches(c,q)).map((c:any)=>({...c,setName:s.name}));}));rows.push(...batches.flat());}}
  else {const numeric=/^\d+$/.test(parsed.number),code=/^[A-Z]+\d+$/.test(parsed.number);const key=numeric||code?'localId':'name';const variants=numeric?[...new Set([String(Number(parsed.number)),parsed.number,parsed.number.padStart(3,'0')])].join('|'):parsed.number;const term=key==='localId'?'eq:'+variants:'like:'+q;rows=await catalog(`cards?${key}=${encodeURIComponent(term)}&pagination:page=1&pagination:itemsPerPage=60`,lang);}
  return rows.filter(physical).slice(0,60);
 }

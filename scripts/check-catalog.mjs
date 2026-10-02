@@ -10,6 +10,7 @@ assert.equal(parseNumber('SVP 27').set,'svp');assert.equal(parseNumber('SVP 27')
 const pikachu=await searchCards('SVP 027','de','',false);assert.equal(pikachu[0]?.id,'svp-027');
 const leading=await searchCards('27','de','svp',true);assert.equal(leading[0]?.id,'svp-027');
 const regular=await searchCards('253/182','de','sv04',false);assert.equal(regular[0]?.name,'Altaria-ex');
+const promos=await searchCards('Pikachu','de','',true);assert.ok(promos.some(c=>c.id==='svp-027'));assert.ok(promos.every(c=>/p-/.test(c.id)));
 const bird=await searchCards('SM210','de','',true);assert.equal(bird[0]?.id,'smp-SM210');
 const alternate=await alternateImage('smp-SM210','de');assert.ok(alternate.image);assert.equal(alternate.language,'en');
 const image=await fetch(alternate.image+'/high.webp');assert.equal(image.status,200);
