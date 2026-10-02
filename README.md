@@ -1,96 +1,52 @@
-# PokéVault für Cloudflare Free
+# PokéVault – Vercel + Supabase
 
-Vorbereitetes Umzugspaket für Tobias: zwei getrennte Benutzerkonten, Pokémon-Karten mit Bildern, mehrere Sammlungen, Cardmarket-Richtpreise via TCGdex und täglicher Portfolio-Chart. Der Quellcode liegt im GitHub-Repository `Nichttobi12/cards`. Das Portal ist noch nicht auf deinem Cloudflare-Konto veröffentlicht. Die Anmeldung mit deinem realen Supabase-Projekt ist noch nicht geprüft.
+Pokémon-Sammlungsportal für zwei getrennte Konten mit Bildern, Kartennummer-Suche, mehreren Sammlungen, Cardmarket-Richtpreisen über TCGdex und Portfolio-Verlauf.
 
-## Voraussetzungen
+## Aktueller Stand
 
-- Cloudflare-Konto im Workers Free-Tarif.
-- GitHub-Konto mit dem Repository `cards` für diesen Code. Zugangsdaten und Sammlungsdaten gehören nicht in das Repository.
-- Supabase-Projekt im Free-Tarif. Keine eigene Domain und kein Clerk-Konto erforderlich.
-- Aktuelles Node.js (mindestens 22.13). Der Code ist eine React-Anwendung mit einem kleinen Cloudflare Worker; keine ChatGPT-Anmeldung.
+- Supabase-Projekt `pokevault` in Frankfurt aktiv, Free-Tarif.
+- Zwei bestätigte Auth-Konten sind mit den Benutzernamen `nichtfabi` und `nichttobi` verknüpft.
+- Datenbank und Edge Function `pokevault` veröffentlicht.
+- Täglicher Preisauftrag aktiv: ab 08:00 deutscher Ortszeit, schrittweise bis zehn unterschiedliche Karten pro Minute.
+- Frontend für Vercel vorbereitet, noch nicht dort veröffentlicht. Echte Anmeldung im fertigen Portal und Preisabrufe mit einer realen Sammlung müssen nach der Veröffentlichung geprüft werden.
 
-## 1. Supabase einrichten
+## Vercel veröffentlichen
 
-1. Im Supabase-Dashboard ein Free-Projekt anlegen, vorzugsweise in einer EU-Region. Das Projektpasswort bleibt bei dir.
-2. Unter Authentication → Users → Add user zwei Benutzer mit E-Mail und jeweils eigenem Passwort anlegen. E-Mail-Bestätigung für diese manuell angelegten Benutzer im Dashboard durchführen. Keine Passwörter in ChatGPT, GitHub oder Cloudflare-Code eintragen.
-3. Unter Authentication → Sign In / Providers E-Mail/Passwort aktivieren. Öffentliche Registrierung für weitere Benutzer deaktivieren.
-4. Aus den Projekt-Einstellungen die Project URL (`https://….supabase.co`) und den **Publishable Key** (`sb_publishable_…`) übernehmen. Keine Secret- oder service_role-Schlüssel verwenden.
-5. Die gewünschten zwei Benutzernamen werden im Cloudflare-Secret `USER_ACCOUNTS_JSON` den beiden E-Mail-Adressen zugeordnet. Supabase selbst prüft die Passwörter; das Portal zeigt eine Benutzername-Anmeldung.
-6. Vergessene Passwörter werden zunächst über die Benutzerverwaltung im Supabase-Dashboard zurückgesetzt. Das Portal enthält keine öffentliche Registrierung und keine Passwort-Zurücksetzen-E-Mailfunktion.
+1. Mit deinem GitHub-Konto bei Vercel anmelden, Hobby-Tarif für dieses private Hobbyprojekt wählen.
+2. Add New → Project → Repository `Nichttobi12/cards` importieren.
+3. Produktionsbranch `main`, Root Directory leer, Framework Preset `Other`.
+4. Build Command `npm run build`, Output Directory `dist/client`. `vercel.json` enthält diese Einstellungen.
+5. Deploy wählen. Keine API-Schlüssel, Passwörter oder eigene Domain erforderlich. Die kostenlose vercel.app-Adresse verwenden.
+6. Die bereitgestellte URL öffnen und beide Konten prüfen. Danach eine Karte hinzufügen und manuelle Aktualisierung testen.
 
-Die Supabase-Datenbank wird vom Portal nicht für Kartendaten verwendet. Deshalb erstellt das Paket dort keine Tabellen, Funktionen oder RLS-Regeln. Kartendaten liegen in Cloudflare D1. Supabase Free kann bei längerer Inaktivität pausieren; im Dashboard lässt sich das Projekt dann wieder aktivieren. Es wird kein kostenpflichtiger Tarif automatisch eingerichtet.
+Änderungen im verbundenen GitHub-Produktionsbranch veröffentlichen die Oberfläche automatisch. Änderungen an `supabase/functions/pokevault` müssen zusätzlich über Supabase deployt werden; der GitHub-Push allein veröffentlicht keine Edge Functions.
 
-## 2. Cloudflare-Datenbank anlegen
+## Aufbau und Datenschutz
 
-1. In Cloudflare unter Storage & Databases → D1 eine Datenbank `pokevault` anlegen.
-2. Deren Database ID in `wrangler.jsonc` anstelle von `REPLACE_WITH_YOUR_D1_DATABASE_ID` eintragen und die Änderung in GitHub speichern.
-3. Die drei SQL-Dateien im Ordner `migrations` werden beim Veröffentlichen der Anwendung angewendet. Sie erstellen die Tabellen für Sammlungen, Karten, Wertstände und Anmeldebegrenzung. Die bestehenden Sites-Daten werden hierdurch nicht übertragen.
+`src/` enthält die Oberfläche. `api/proxy.ts` leitet nur die vier Portal-Routen an Supabase weiter und prüft den Origin bei schreibenden Browseranfragen. Zugangstokens bleiben in HttpOnly-/Secure-/SameSite-Cookies. Backend: `supabase/functions/pokevault/`.
 
-## 3. GitHub und Cloudflare verbinden
+E-Mail-Zuordnungen liegen ausschließlich in `portal_accounts` in der Datenbank. Das Konto darf nur seinen eigenen Datensatz lesen. Benutzer können die Zuordnung nicht ändern. Kartentabellen verwenden Row Level Security und eine zusammengesetzte Fremdschlüsselprüfung, damit Karten nicht in fremde Sammlungen verschoben werden können. Der Server prüft die Supabase-Identität und Kontozuordnung vor jedem Kartenzugriff.
 
-1. Das bestehende GitHub-Repository `Nichttobi12/cards` verwenden. Der Code liegt bereits im Stammverzeichnis; `package.json` und `wrangler.jsonc` müssen direkt im Repository-Stamm liegen.
-2. Cloudflare → Workers & Pages → Create application → Import a repository → Get started.
-3. GitHub verbinden und das Repository auswählen.
-4. Worker-Name: **pokevault** (muss dem Namen in `wrangler.jsonc` entsprechen).
-5. Produktionsbranch: **main**. Stammverzeichnis: leer bzw. `/`.
-6. Build-Befehl: `npm run build`.
-7. Deploy-Befehl: `npx wrangler d1 migrations apply DB --remote && npx wrangler deploy`.
-8. Free-Tarif beibehalten. Keine eigene Domain kaufen; die zugewiesene `workers.dev`-Adresse verwenden.
-9. Falls beim ersten Deploy die Anmeldung noch nicht konfiguriert ist, erscheint ein Einrichtungsfehler. Setze die unten stehenden Laufzeitwerte und veröffentliche erneut.
+Privilegierte Supabase-Schlüssel bleiben ausschließlich in der Edge-Runtime. Das Backend bevorzugt die modernen `SUPABASE_SECRET_KEYS` und `SUPABASE_PUBLISHABLE_KEYS`; ältere Runtime-Schlüssel werden nur als Kompatibilitätsfallback verwendet. Die Funktion hat eine eigene Authentifizierung: Login öffentlich, Kartenzugriff nur mit bestätigtem Konto, Preis-Cron nur mit internem Schlüssel. Deshalb ist die vorgeschaltete JWT-Prüfung ausgeschaltet. Keine privilegierten Schlüssel im Vercel-Projekt oder Browser erforderlich.
 
-## 4. Laufzeitwerte in Cloudflare setzen
+`portal_scheduler_secret`, `login_attempts` und `refresh_jobs` sind ausschließlich für den Server zugänglich. RLS ohne öffentliche Policies ist dort beabsichtigt. Die Datenbankprüfung meldet außerdem die deaktivierte Prüfung auf geleakte Passwörter als allgemeinen Auth-Hinweis; diese zusätzliche Anbieterfunktion wurde nicht als kostenpflichtige Option aktiviert.
 
-Unter Workers & Pages → pokevault → Settings → Variables and Secrets folgende Werte setzen, anschließend neu veröffentlichen:
+Der Cron-Schlüssel wurde innerhalb der Datenbank erzeugt und erscheint weder im Repository noch in dieser Dokumentation. Das Schema in `supabase/schema.sql` ist eine Referenz, keine automatisch ausgeführte Migration. Die reale Migration wird durch Supabase verwaltet. Kontozuordnungen und Scheduler werden bei einer Neuinstallation separat eingerichtet.
 
-| Name | Typ | Inhalt |
-| --- | --- | --- |
-| SUPABASE_URL | Variable | Project URL deines Supabase-Projekts |
-| SUPABASE_PUBLISHABLE_KEY | Secret | Publishable Key, kein service_role/Secret API Key |
-| USER_ACCOUNTS_JSON | Secret | `{"Tobias":"erste-email@example.com","Sammler2":"zweite-email@example.com"}` mit genau zwei eigenen Konten |
+## Preise und Verlauf
 
-Die beiden tatsächlichen Passwörter bleiben ausschließlich bei Supabase. Ein Zugriff auf das Portal ist nur für die zwei konfigurierten E-Mail-Adressen zulässig, auch wenn im Supabase-Projekt andere Konten existieren. Kartendaten werden serverseitig ausschließlich anhand der bestätigten Supabase-Benutzer-ID ausgewählt. Sitzungen verwenden HttpOnly-/Secure-Cookies und werden bei Ablauf erneuert. Zehn Anmeldeversuche je IP in zehn Minuten sind erlaubt.
+Cardmarket-Richtpreise über TCGdex sind Schätzwerte; Varianten ohne passenden Preis und gegradete Karten ohne manuelle Bewertung bleiben unbewertet. Fehlgeschlagene Aktualisierungen behalten den letzten Preis. Der Tagesstand wird nach dem kompletten Durchlauf gespeichert. Bestehende Karten sind noch nicht aus dem früheren Portal übertragen.
 
-## 5. Vorhandene Sammlung übertragen
+Supabase Free kann bei längerer Inaktivität pausieren. Das alte Portal bleibt bis zur erfolgreich geprüften Umstellung aktiv.
 
-1. Im bisherigen ChatGPT-Portal unter Pflege & Daten einen vollständigen JSON-Export herunterladen.
-2. Im Supabase-Dashboard die User ID des Kontos kopieren, das diese Sammlung erhalten soll.
-3. Lokal im Projekt ausführen:
-
-```sh
-node scripts/import-backup.mjs BACKUP.json SUPABASE_USER_ID > import.sql
-npx wrangler d1 execute DB --remote --file import.sql
-```
-
-Das Importskript erzeugt SQL mit deinen vorhandenen IDs und weist Daten ausschließlich dem angegebenen Konto zu. Es ist für eine leere Ziel-Datenbank bzw. noch nicht importierte Sammlungen vorgesehen. Bei bereits vorhandenen IDs bricht die Transaktion ab; es überschreibt oder löscht keine bestehenden Karten. `import.sql` enthält private Sammlungsdaten und gehört nicht ins GitHub-Repository.
-
-## 6. Tagespreise und Chart
-
-- Cloudflare startet die Aktualisierung ab **08:00 Uhr Europe/Budapest** (entspricht deutscher Ortszeit).
-- Ein Cron-Aufruf pro Minute prüft den Fortschritt. Je Aufruf werden höchstens zehn unterschiedliche Karten/Sprache-Kombinationen für ein Portfolio aktualisiert. Damit bleiben die externen Aufrufe pro Worker-Aufruf begrenzt.
-- Bei 570 unterschiedlichen Karten dauert ein kompletter Tagesdurchlauf grob eine Stunde; bei zwei großen Portfolios entsprechend länger. Bereits aktuelle Karten sind sofort sichtbar, der Tagesstand wird nach dem kompletten Durchlauf gespeichert.
-- Fehlgeschlagene Preisabrufe behalten den bisherigen Preis; der Tagesstand vermerkt diese Ausfälle. Am nächsten Tag wird wieder versucht. Manuelles Aktualisieren ist zusätzlich möglich und läuft ebenfalls in kleinen Teilabrufen.
-- Cloudflare Free hat neben Anfragekontingenten auch CPU- und Unteranfragegrenzen. Vor dem Live-Einsatz müssen Anmeldung, ein repräsentativer Kartensatz und der Cron-Aufruf auf dem echten Free-Konto geprüft werden. Kein erfolgreicher Live-Test wird durch dieses Paket behauptet.
-- Das bisherige Sites-Portal und seine tägliche Automatisierung laufen weiter, bis der Umzug erfolgreich geprüft ist. Danach sollte die alte Automatisierung pausiert werden.
-
-## Entwicklung und Updates
+## Prüfungen
 
 ```sh
 npm ci
 npm run build
-npx wrangler d1 migrations apply DB --local
+node scripts/check-supabase.mjs
 ```
 
-Für lokale Tests `.dev.vars.example` nach `.dev.vars` kopieren und eigene Werte eintragen. Die Anwendung dann über `npx wrangler dev` öffnen; reine Vite-Entwicklung stellt keine API oder Anmeldung bereit. Für Tests mit HTTPS-Cookies muss die lokale Sitzung entsprechend über HTTPS bereitgestellt werden.
+Der Prüflauf simuliert Auth-Antworten und prüft Kontotrennung, anonyme Zugriffssperre, fremde Sammlungen, Origin-Prüfung und Cron-Schutz. Die tatsächliche Datenbank wurde zusätzlich mit beiden Konto-Identitäten auf Isolation und auf verweigerte fremde Kartenreferenzen geprüft. Der veröffentlichte Server antwortet anonym mit 401; der interne Preisauftrag antwortet erfolgreich mit 200 bei noch leerer Sammlung. Dies ersetzt keinen echten Passwort-Login.
 
-Spätere Updates: Code ändern → in den verbundenen Produktionsbranch hochladen → Cloudflare baut und veröffentlicht automatisch. Das Repo sollte für Änderungen über das GitHub-Plugin erreichbar sein; das installierte Plugin allein beweist noch keinen funktionierenden Schreibzugriff.
-
-## Dokumentation
-
-- https://developers.cloudflare.com/workers/ci-cd/builds/
-- https://developers.cloudflare.com/d1/get-started/
-- https://supabase.com/docs/guides/auth/passwords
-- https://supabase.com/docs/reference/javascript/auth-signinwithpassword
-
-## Verifikation dieses Pakets
-
-TypeScript- und Build-Prüfungen, Migrationen und Datenimport wurden lokal geprüft. Ein isolierter Worker-Test mit simulierten Supabase-Antworten bestätigt: anonymer Zugriff abgewiesen, beide Konten getrennt, fremde Sammlungen abgewiesen und fremde Origin bei der Anmeldung abgewiesen. Dieser Test ersetzt keinen echten Supabase-Login. Die tatsächlichen beiden Supabase-Anmeldungen, Cloudflare-CPU-Nutzung, öffentliche Veröffentlichung benötigen die noch fehlende Cloudflare-Verbindung und Laufzeitkonfiguration. Der GitHub-Upload wurde geprüft.
+Cloudflare-Dateien in `worker/`, `migrations/` und `wrangler.jsonc` bleiben vorerst als Referenz erhalten. Für Vercel werden sie nicht verwendet.

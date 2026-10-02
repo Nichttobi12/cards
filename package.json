@@ -1,1 +1,29 @@
-{"name":"pokevault-cloudflare","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"vite","build":"tsc --noEmit && vite build","deploy":"npm run build && wrangler d1 migrations apply DB --remote && wrangler deploy","check":"tsc --noEmit"},"dependencies":{"react":"19.2.6","react-dom":"19.2.6","lucide-react":"1.31.0","recharts":"3.8.0"},"devDependencies":{"@vitejs/plugin-react":"6.0.2","vite":"8.0.13","typescript":"5.9.3","wrangler":"4.92.0","@cloudflare/workers-types":"4.20260515.1","@types/react":"19.2.14","@types/react-dom":"19.2.3","@types/node":"22.19.19"}}
+{
+  "name": "pokevault",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "check": "tsc --noEmit",
+    "deploy:cloudflare": "npm run build && wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "test": "node scripts/check-supabase.mjs"
+  },
+  "dependencies": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "lucide-react": "1.31.0",
+    "recharts": "3.8.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.0.2",
+    "vite": "8.0.13",
+    "typescript": "5.9.3",
+    "wrangler": "4.92.0",
+    "@cloudflare/workers-types": "4.20260515.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@types/node": "22.19.19"
+  }
+}
