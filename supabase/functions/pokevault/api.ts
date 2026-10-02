@@ -1,5 +1,6 @@
 import {getUser} from './auth.ts';
 import { db, tcg } from './data.ts';
+import {catalog,physical,searchCards,alternateImage} from './catalog.ts';
 import {snapshot,refresh,today} from './history.ts';
 export const dynamic='force-dynamic';
 const json=(v:any,status=200)=>Response.json(v,{status});
@@ -10,15 +11,14 @@ export async function GET(request:Request){
  const user=await getUser(request); if(!user)return json({error:'Bitte anmelden.'},401);
  const u=new URL(request.url),op=u.searchParams.get('op')||'state',lang=u.searchParams.get('lang')||'de';
  if(!langs.includes(lang))return json({error:'Ungültige Sprache.'},400);
- if(op==='sets'){const sets=await tcg('sets',lang);return json(sets.filter((s:any)=>!/^A\d|^P-A/.test(s.id)).reverse());}
+ if(op==='sets'){const sets=await catalog('sets',lang);return json(sets.filter(physical).reverse());}
  if(op==='detail'){const id=u.searchParams.get('id')||'';if(!/^[a-zA-Z0-9.-]+$/.test(id))return json({error:'Ungültige Karten-ID.'},400);return json(await tcg(`cards/${id}`,lang));}
+ if(op==='image'){const id=u.searchParams.get('id')||'';if(!/^[a-zA-Z0-9.-]+$/.test(id))return json({error:'Ungültige Karten-ID.'},400);return json(await alternateImage(id,lang));}
  if(op==='search'){
  const q=(u.searchParams.get('q')||'').trim(),set=u.searchParams.get('set');
  if(!q||q.length>100)return json({error:'Bitte Name oder Kartennummer eingeben.'},400);
- const number=q.split('/')[0].trim(); let rows:any[];
- if(set){if(!/^[a-zA-Z0-9.-]+$/.test(set))throw Error('Ungültiges Set.');const data=await tcg(`sets/${set}`,lang);rows=data.cards.filter((c:any)=>/^\d+$/.test(number)?Number(c.localId)===Number(number):c.localId.toLowerCase()===number.toLowerCase()||c.name.toLowerCase().includes(q.toLowerCase())); rows=rows.map(c=>({...c,setName:data.name}));}
- else {const key=/^[0-9]+$/.test(number)||/^[a-z]+[0-9]+$/i.test(number)?'localId':'name';const term=key==='localId'?number:`like:${q}`;rows=await tcg(`cards?${key}=${encodeURIComponent(term)}&pagination:itemsPerPage=60`,lang);}
- rows=rows.filter(c=>!/^A\d|^P-A/.test(c.id)); return json(rows.slice(0,60));
+ if(set&&!/^[a-zA-Z0-9.-]+$/.test(set))return json({error:'Ungültiges Set.'},400);
+ return json(await searchCards(q,lang,set||'',u.searchParams.get('type')==='promo'));
  }
  const d=db();const [collections,cards,history]=await Promise.all([d.prepare('SELECT * FROM collections WHERE owner = ? ORDER BY created').bind(user.userId).all(),d.prepare('SELECT * FROM cards WHERE owner = ? ORDER BY fetched DESC').bind(user.userId).all(),d.prepare('SELECT * FROM portfolio_snapshots WHERE owner = ? ORDER BY day').bind(user.userId).all()]);
  return json({collections:collections.results,cards:cards.results.map(decode),history:history.results,today:today()});

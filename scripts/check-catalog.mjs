@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+const temp=await mkdtemp(join(tmpdir(),'pokevault-catalog-'));
+await build({entryPoints:['supabase/functions/pokevault/catalog.ts'],bundle:true,platform:'node',format:'esm',outfile:join(temp,'catalog.mjs')});
+const {searchCards,parseNumber,alternateImage}=await import(join(temp,'catalog.mjs'));
+assert.equal(parseNumber('SVP 27').set,'svp');assert.equal(parseNumber('SVP 27').number,'027');assert.equal(parseNumber('SWSH001').number,'SWSH001');
+const pikachu=await searchCards('SVP 027','de','',false);assert.equal(pikachu[0]?.id,'svp-027');
+const leading=await searchCards('27','de','svp',true);assert.equal(leading[0]?.id,'svp-027');
+const regular=await searchCards('253/182','de','sv04',false);assert.equal(regular[0]?.name,'Altaria-ex');
+const bird=await searchCards('SM210','de','',true);assert.equal(bird[0]?.id,'smp-SM210');
+const alternate=await alternateImage('smp-SM210','de');assert.ok(alternate.image);assert.equal(alternate.language,'en');
+const image=await fetch(alternate.image+'/high.webp');assert.equal(image.status,200);
+const exact=await searchCards('027','de','',false);assert.ok(exact.every(c=>Number(c.localId)===27));
+console.log('Passed live catalog: SVP 027, leading zero, SM210, regular 253/182, exact number search and English replacement image.');
+await rm(temp,{recursive:true,force:true});
