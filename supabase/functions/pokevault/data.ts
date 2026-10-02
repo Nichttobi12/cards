@@ -36,3 +36,9 @@ class Statement{
 }
 export function db(){return {prepare:(sql:string)=>new Statement(sql),batch:(queries:Statement[])=>Promise.all(queries.map(q=>q.run()))};}
 export async function tcg(path:string,lang:string){const r=await fetch(`https://api.tcgdex.net/v2/${lang}/${path}`,{signal:AbortSignal.timeout(25000)});if(!r.ok)throw Error(r.status===404?'Karte oder Set nicht gefunden.':'Der Kartenanbieter ist gerade nicht erreichbar.');return r.json() as Promise<any>;}
+// Private photo bucket: only the authenticated portal API can sign or modify objects.
+export async function storage(path:string,options:RequestInit={}):Promise<any>{
+ const key=adminKey();const headers:Record<string,string>={apikey:key,...(key.startsWith('eyJ')?{Authorization:'Bearer '+key}:{}),'Content-Type':'application/json'};
+ const r=await fetch(env.SUPABASE_URL+'/storage/v1/'+path,{...options,headers:{...headers,...options.headers},signal:AbortSignal.timeout(20000)});
+ if(!r.ok)throw Error('Foto konnte nicht gespeichert oder geladen werden.');return r.json();
+}

@@ -1,6 +1,6 @@
 # PokéVault – Vercel + Supabase
 
-Pokémon-Sammlungsportal für zwei getrennte Konten mit Bildern, Kartennummer-Suche, mehreren Sammlungen, Cardmarket-Richtpreisen über TCGdex und Portfolio-Verlauf.
+Pokémon-Sammlungsportal für zwei Benutzerkonten: eigenes Portfolio, gemeinsames Dashboard, fehlertolerante Suche, Sets und Promo-Ordner, Cardmarket-Richtpreise und Tagesverlauf. Heller und dunkler Modus, mobile Navigation und Kartenfotos.
 
 ## Aktueller Stand
 
@@ -10,7 +10,10 @@ Pokémon-Sammlungsportal für zwei getrennte Konten mit Bildern, Kartennummer-Su
 - Täglicher Preisauftrag aktiv: ab 08:00 deutscher Ortszeit, schrittweise bis zehn unterschiedliche Karten pro Minute.
 - Live auf Vercel Hobby: https://cards-chi-dusky.vercel.app/
 - Vercel-API und Supabase-Datenbank in Frankfurt; automatische Veröffentlichung aus GitHub `main` geprüft.
-- Echter Passwort-Login als `nichttobi` und Suche nach Altaria-ex (Paradoxrift, 253/182) mit Bild und Cardmarket-Richtpreis erfolgreich geprüft. Die Sammlung ist noch leer; Speichern und Preisverlauf mit eigenen Karten stehen als Nutzungsprüfung aus.
+- Login und Kartensuche wurden bei der Einrichtung geprüft. Bestehende Sammlungen bleiben bei Portal-Updates erhalten.
+- Suche normalisiert Bindestriche, Akzente, Großschreibung und die Abkürzung M für Mega; kleinere Tippfehler und Buchstabendreher werden gewichtet. Nummern bleiben exakt. Fokus: Deutsch und Englisch.
+- Das gemeinsame Dashboard zeigt die Karten und Werte beider konfigurierten Konten, ohne Einkaufskosten oder Notizen.
+- Eigene Kartenfotos liegen im privaten Storage-Bucket `card-photos`; Vorschauen verwenden zeitlich begrenzte URLs.
 
 ## Vercel veröffentlichen
 
@@ -27,7 +30,7 @@ Pokémon-Sammlungsportal für zwei getrennte Konten mit Bildern, Kartennummer-Su
 
 `src/` enthält die Oberfläche. `api/proxy.ts` leitet nur die vier Portal-Routen an Supabase weiter und prüft den Origin bei schreibenden Browseranfragen. Zugangstokens bleiben in HttpOnly-/Secure-/SameSite-Cookies. Backend: `supabase/functions/pokevault/`.
 
-E-Mail-Zuordnungen liegen ausschließlich in `portal_accounts` in der Datenbank. Das Konto darf nur seinen eigenen Datensatz lesen. Benutzer können die Zuordnung nicht ändern. Kartentabellen verwenden Row Level Security und eine zusammengesetzte Fremdschlüsselprüfung, damit Karten nicht in fremde Sammlungen verschoben werden können. Der Server prüft die Supabase-Identität und Kontozuordnung vor jedem Kartenzugriff.
+E-Mail-Zuordnungen liegen ausschließlich in `portal_accounts` in der Datenbank. Der eigene Portfolio-Endpunkt und alle Änderungen sind auf den Besitzer beschränkt. Der ausdrücklich gemeinsame Dashboard-Endpunkt liefert beiden erlaubten Konten Karten, Sammlungsnamen und Werte des anderen als Leseansicht; er entfernt E-Mails, Einkaufspreise und Notizen. Es gibt keine öffentliche Sammlung und keine neuen RLS-Freigaben. Benutzer können die Zuordnung nicht ändern. Kartentabellen verwenden Row Level Security und eine zusammengesetzte Fremdschlüsselprüfung, damit Karten nicht in fremde Sammlungen verschoben werden können. Der Server prüft die Supabase-Identität und Kontozuordnung vor jedem Kartenzugriff.
 
 Privilegierte Supabase-Schlüssel bleiben ausschließlich in der Edge-Runtime. Das Backend bevorzugt die modernen `SUPABASE_SECRET_KEYS` und `SUPABASE_PUBLISHABLE_KEYS`; ältere Runtime-Schlüssel werden nur als Kompatibilitätsfallback verwendet. Die Funktion hat eine eigene Authentifizierung: Login öffentlich, Kartenzugriff nur mit bestätigtem Konto, Preis-Cron nur mit internem Schlüssel. Deshalb ist die vorgeschaltete JWT-Prüfung ausgeschaltet. Keine privilegierten Schlüssel im Vercel-Projekt oder Browser erforderlich.
 
@@ -37,7 +40,7 @@ Der Cron-Schlüssel wurde innerhalb der Datenbank erzeugt und erscheint weder im
 
 ## Preise und Verlauf
 
-Cardmarket-Richtpreise über TCGdex sind Schätzwerte; Varianten ohne passenden Preis und gegradete Karten ohne manuelle Bewertung bleiben unbewertet. Fehlgeschlagene Aktualisierungen behalten den letzten Preis. Der Tagesstand wird nach dem kompletten Durchlauf gespeichert. Bestehende Karten sind noch nicht aus dem früheren Portal übertragen.
+Cardmarket-Richtpreise über TCGdex sind Schätzwerte; Varianten ohne passenden Preis und gegradete Karten ohne manuelle Bewertung bleiben unbewertet. Fehlgeschlagene Aktualisierungen behalten den letzten Preis. Der Tagesstand wird nach dem kompletten Durchlauf gespeichert. Gegradete Karten können über eine eBay-Suche nach verkauften Angeboten verglichen werden. Aus mindestens drei selbst erfassten Vergleichsverkäufen berechnet die Oberfläche einen Median, der als eigener Wert übernommen werden kann. Es gibt keinen automatischen Abruf abgeschlossener eBay-Verkäufe und keine erfundenen Grading-Multiplikatoren.
 
 Supabase Free kann bei längerer Inaktivität pausieren. Das alte Portal bleibt bis zur erfolgreich geprüften Umstellung aktiv.
 
@@ -47,8 +50,17 @@ Supabase Free kann bei längerer Inaktivität pausieren. Das alte Portal bleibt 
 npm ci
 npm run build
 node scripts/check-supabase.mjs
+node scripts/check-catalog-fixtures.mjs
+# Optional: Live-Abfragen beim Anbieter
+node scripts/check-catalog.mjs
 ```
 
-Der Prüflauf simuliert Auth-Antworten und prüft Kontotrennung, anonyme Zugriffssperre, fremde Sammlungen, Origin-Prüfung und Cron-Schutz. Die tatsächliche Datenbank wurde zusätzlich mit beiden Konto-Identitäten auf Isolation und auf verweigerte fremde Kartenreferenzen geprüft. Der veröffentlichte Server antwortet anonym mit 401; der interne Preisauftrag antwortet erfolgreich mit 200 bei noch leerer Sammlung. Zusätzlich wurde der echte Passwort-Login als `nichttobi` im veröffentlichten Portal geprüft. Die Kartensuche zeigte Altaria-ex mit Bild und Richtpreis; keine Testkarte wurde gespeichert.
+Der Prüflauf simuliert Auth-Antworten und prüft Kontotrennung, anonyme Zugriffssperre, fremde Sammlungen, Origin-Prüfung und Cron-Schutz. Die tatsächliche Datenbank wurde zusätzlich mit beiden Konto-Identitäten auf Isolation und auf verweigerte fremde Kartenreferenzen geprüft. Zusätzliche Fixtures prüfen den gemeinsamen Zugriff beider Konten, ausgeblendete Privatfelder, Foto-Eigentum, ungültige Uploads und private Bildvorschauen. Die Suche wird mit Mega Gengar ohne Bindestrich, Tippfehlern, Buchstabendrehern, Promo-Nummern und Pocket-Ausschluss geprüft. Der veröffentlichte Server verweigert anonyme Zugriffe mit 401. Zusätzlich wurde der echte Passwort-Login als `nichttobi` im veröffentlichten Portal geprüft. Die Kartensuche zeigte Altaria-ex mit Bild und Richtpreis; keine Testkarte wurde gespeichert.
 
 Cloudflare-Dateien in `worker/`, `migrations/` und `wrangler.jsonc` bleiben vorerst als Referenz erhalten. Für Vercel werden sie nicht verwendet.
+
+## Eigene Kartenbilder
+
+Bei verfügbaren Anbieterbildern werden WebP, PNG und JPEG versucht, danach die andere Sprache derselben Karten-ID. Die Ersatzsprache ist gekennzeichnet; Sprache und Preise bleiben unverändert. Fehlende Bilder werden nicht durch Bilder anderer Karten ersetzt. Eine gespeicherte Karte kann beim Bearbeiten ein eigenes Foto erhalten. Der Browser skaliert es auf maximal 1200 Pixel und erzeugt JPEG ohne Original-Metadaten, der Server begrenzt Uploads auf 1 MB und prüft den Eigentümer. Neue Uploads ersetzen das vorherige Foto. Ohne eigenes Foto bleiben tatsächliche Lücken des Kartenanbieters sichtbar.
+
+Migration: `supabase/migrations/202610022015_private_card_photos.sql`. Vor dem Edge-Deploy anwenden. Der Bucket bleibt privat und hat keine öffentlichen oder allgemeinen Auth-Policies; Zugriff erfolgt ausschließlich über die verifizierte Portal-API.
