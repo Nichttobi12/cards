@@ -8,9 +8,10 @@ export async function portfolioPrices(card:any,language:string,previous:any){
  const id=card.id+'/'+language,row=await db().prepare('SELECT data, updated_at FROM market_quotes WHERE id = ?').bind(id).first();
  const current=trendValues(card,language),stored=row?.data||{},baseline=stored.trendBaseline||trendValues(previous,language);
  const trigger=volatileTrend(baseline,current);
- const result=trigger?await withLanguagePrices(card,language):await cachedLanguagePrices(card,language);
+ let result=trigger&&language==='de'?await withLanguagePrices(card,language):await cachedLanguagePrices(card,language);
+ if(trigger){const quotes={...result.languageMarketQuotes};for(const [variant,q] of Object.entries(quotes) as [string,any][]){if(q.manualApproved){quotes[variant]={...q,reviewRequired:true};const approved=(await db().prepare('SELECT * FROM price_submissions WHERE card_id = ? AND language = ? AND variant = ? AND status = ?').bind(card.id,language,variant,'approved').all()).results;for(const s of approved)await db().prepare('UPDATE price_submissions SET status = ?, needs_review = ? WHERE id = ?').bind('pending',true,s.id).run();}}result={...result,languageMarketQuotes:quotes};}
  const latest=await db().prepare('SELECT data, updated_at FROM market_quotes WHERE id = ?').bind(id).first();
- const data={...(latest?.data||stored),trendBaseline:trigger&&result.languagePriceStatus==='error'?baseline:trigger||!stored.trendBaseline?current:baseline,trendCheckedAt:new Date().toISOString()};
+ const data={...(latest?.data||stored),languageMarketQuotes:result.languageMarketQuotes||{},trendBaseline:trigger&&result.languagePriceStatus==='error'?baseline:trigger||!stored.trendBaseline?current:baseline,trendCheckedAt:new Date().toISOString()};
  await db().prepare('INSERT INTO market_quotes (id,data,updated_at) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at').bind(id,data,latest?.updated_at||row?.updated_at||new Date().toISOString()).run();
- return {...result,marketRefreshTriggered:trigger};
+ return {...result,marketRefreshTriggered:trigger&&language==='de',trendChanged:trigger};
 }

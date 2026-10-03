@@ -1,3 +1,5 @@
+import {trendValues} from './price-policy.ts';
+import {sealedCatalog,sealedRows,sealedMutation} from './sealed.ts';
 import {submitPrice} from './manual-prices.ts';
 import {cachedLanguagePrices} from './language-prices.ts';
 import {PhotoLockedError} from './image-policy.ts';
@@ -25,6 +27,7 @@ export async function GET(request:Request){
  const user=await getUser(request); if(!user)return json({error:'Bitte anmelden.'},401);
  const u=new URL(request.url),op=u.searchParams.get('op')||'state',lang=u.searchParams.get('lang')||'de';
  if(!langs.includes(lang))return json({error:'Ungültige Sprache.'},400);
+ if(op==='sealed-catalog')return json(sealedCatalog);
  if(op==='photo'){
  const id=u.searchParams.get('id')||'';if(!/^[a-zA-Z0-9-]{1,100}$/.test(id))return json({error:'Ungültige Karte.'},400);
  const d=db(),row=await d.prepare('SELECT * FROM card_images WHERE id = ?').bind(id).first();const accounts=await members();
@@ -51,7 +54,7 @@ export async function GET(request:Request){
  return json(await catalogPhotos((await searchCards(q,lang,set||'',u.searchParams.get('type')==='promo')).map((c:any)=>attachImage(c,lang)),user.userId,lang));
  }
  const d=db();const [collections,cards,history]=await Promise.all([d.prepare('SELECT * FROM collections WHERE owner = ? ORDER BY created').bind(user.userId).all(),d.prepare('SELECT * FROM cards WHERE owner = ? ORDER BY fetched DESC').bind(user.userId).all(),d.prepare('SELECT * FROM portfolio_snapshots WHERE owner = ? ORDER BY day').bind(user.userId).all()]);
- return json({collections:collections.results,cards:(await withPhotos(cards.results)).map((r:any)=>({...decode(r),data:attachImage({...JSON.parse(r.data),customImageUrl:r.customImageUrl,customPhotoId:r.customPhotoId,customImageShared:r.customImageShared},r.language)})),history:history.results,today:today()});
+ return json({collections:collections.results,cards:(await withPhotos(cards.results)).map((r:any)=>({...decode(r),data:attachImage({...JSON.parse(r.data),customImageUrl:r.customImageUrl,customPhotoId:r.customPhotoId,customImageShared:r.customImageShared},r.language)})),history:history.results,sealedItems:await sealedRows(user.userId),today:today()});
  }catch(e){console.error(e);return json({error:e instanceof Error?e.message:'Abruf fehlgeschlagen.'},503);}
 }
 export async function POST(request:Request){
@@ -59,15 +62,16 @@ export async function POST(request:Request){
  const user=await getUser(request);if(!user)return json({error:'Bitte anmelden.'},401);
  const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return json({error:'Anfrage abgelehnt.'},403);
  const b=await request.json() as any,d=db(),owner=user.userId;
+ if(['sealed-add','sealed-edit','sealed-delete'].includes(b.op)){try{const result=await sealedMutation(owner,b);await snapshot(owner);return json(result);}catch(e){return json({error:e instanceof Error?e.message:'Speichern fehlgeschlagen.'},400);}}
  if(b.op==='submit-price'){try{const result=await submitPrice(owner,b);await snapshot(owner);return json(result);}catch(e){return json({error:e instanceof Error?e.message:'Preisvorschlag fehlgeschlagen.'},400);}}
- if(b.op==='review-price'){if(user.role!=='admin')return json({error:'Nur für Administratoren.'},403);if(!['approved','rejected'].includes(b.decision)||! /^[a-f0-9-]{36}$/.test(b.id||''))return json({error:'Ungültige Freigabe.'},400);const result=await rpc('portal_review_price',{submission_id:b.id,reviewer_id:owner,decision:b.decision});if(b.decision==='approved'){const owners=(await d.prepare('SELECT DISTINCT owner FROM cards').all()).results;await Promise.all(owners.map((r:any)=>snapshot(r.owner)));}return json(result);}
+ if(b.op==='review-price'){if(user.role!=='admin')return json({error:'Nur für Administratoren.'},403);if(!['approved','rejected'].includes(b.decision)||! /^[a-f0-9-]{36}$/.test(b.id||''))return json({error:'Ungültige Freigabe.'},400);const result=await rpc('portal_review_price',{submission_id:b.id,reviewer_id:owner,decision:b.decision});if(b.decision==='approved'&&!result.alreadyReviewed){const submission=await d.prepare('SELECT * FROM price_submissions WHERE id = ?').bind(b.id).first();if(submission){const fresh=await catalog('cards/'+submission.card_id,submission.language,false);const id=submission.card_id+'/'+submission.language;const cache=await d.prepare('SELECT data, updated_at FROM market_quotes WHERE id = ?').bind(id).first();if(cache)await d.prepare('INSERT INTO market_quotes (id,data,updated_at) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at').bind(id,{...cache.data,trendBaseline:trendValues(fresh,submission.language)},cache.updated_at).run();}const owners=(await d.prepare('SELECT DISTINCT owner FROM cards').all()).results;await Promise.all(owners.map((r:any)=>snapshot(r.owner)));}return json(result);}
  if(b.op==='review-photo'){if(user.role!=='admin')return json({error:'Nur für Administratoren.'},403);if(!['approved','rejected'].includes(b.decision)||! /^[a-f0-9-]{36}$/.test(b.id||''))return json({error:'Ungültige Freigabe.'},400);return json(await rpc('portal_review_photo',{submission_id:b.id,reviewer_id:owner,decision:b.decision}));}
  if(b.op==='photo'){try{return json(await savePhoto(owner,String(b.id||''),b.content,b.cardId,b.language));}catch(e){return json({error:e instanceof Error?e.message:'Foto fehlgeschlagen.'},e instanceof PhotoLockedError?403:400);}}
- if(b.op==='collection') {if((await d.prepare('SELECT id FROM collections WHERE owner = ?').bind(owner).all()).results.length>=100)return json({error:'Höchstens 100 Sammlungen pro Konto.'},400);const name=String(b.name||'').trim();if(!name||name.length>80)return json({error:'Bitte einen Sammlungsnamen mit höchstens 80 Zeichen eingeben.'},400);const id=crypto.randomUUID();await d.prepare('INSERT INTO collections (id, owner, name, created) VALUES (?, ?, ?, ?)').bind(id,owner,name,new Date().toISOString()).run();await snapshot(owner);return json({id});}
+ if(b.op==='collection') {if((await d.prepare('SELECT id FROM collections WHERE owner = ?').bind(owner).all()).results.length>=100)return json({error:'Höchstens 100 Sammlungen pro Konto.'},400);const name=String(b.name||'').trim();if(!name||name.length>80)return json({error:'Bitte einen Sammlungsnamen mit höchstens 80 Zeichen eingeben.'},400);const id=crypto.randomUUID();await d.prepare('INSERT INTO collections (id, owner, name, created, kind) VALUES (?, ?, ?, ?, ?)').bind(id,owner,name,new Date().toISOString(),b.kind==='sealed'?'sealed':'cards').run();await snapshot(owner);return json({id});}
  if(b.op==='delete'){await d.prepare('DELETE FROM cards WHERE id = ? AND owner = ?').bind(b.id,owner).run();await snapshot(owner);return json({ok:true});}
  if(b.op==='refresh'){return json(await refresh(owner,Number(b.cursor)||0,Number(b.failedSoFar)||0));}
  if(!['add','edit'].includes(b.op))return json({error:'Ungültige Aktion.'},400);
- const collection=await d.prepare('SELECT id FROM collections WHERE id = ? AND owner = ?').bind(b.collectionId,owner).first();if(!collection)return json({error:'Bitte eine eigene Sammlung wählen.'},400);
+ const collection=await d.prepare('SELECT * FROM collections WHERE id = ? AND owner = ?').bind(b.collectionId,owner).first();if(!collection)return json({error:'Bitte eine eigene Sammlung wählen.'},400);if(collection.kind==='sealed')return json({error:'Einzelkarten gehören in eine Kartensammlung.'},400);
  if(!Number.isInteger(b.quantity)||b.quantity<1||b.quantity>9999)return json({error:'Anzahl muss zwischen 1 und 9999 liegen.'},400);
  if(!langs.includes(b.language)||!['NM','EX','GD','LP','PL','PO'].includes(b.condition))return json({error:'Ungültige Kartendetails.'},400);
  const cents=(x:any)=>x===null||x===''||x===undefined?null:Math.round(Number(x)*100);

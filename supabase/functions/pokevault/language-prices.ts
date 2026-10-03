@@ -31,6 +31,7 @@ async function request(path:string,key:string){
  return response.json() as Promise<any>;
 }
 async function load(card:any,language:string){
+ if(!['de'].includes(language))return {...card,marketLanguage:language,languagePriceStatus:'trend_only'};
  const key=Deno.env.get('GRADING_RAPIDAPI_KEY');if(!key)return {...card,marketLanguage:language,languagePriceStatus:'not_configured'};
  const id=card.id+'/'+language,stored=await db().prepare('SELECT data, updated_at FROM market_quotes WHERE id = ?').bind(id).first();
  const cached=stored?.data;

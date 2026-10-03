@@ -65,6 +65,7 @@ async function provider(path:string,key:string):Promise<any>{
  return response.json();
 }
 export async function gradedPrice(id:string,language:string,grading:string,variant=''){
+ if(!['de'].includes(language))return {status:'trend_only',message:'Für diese Sprache werden keine neuen Grading-API-Abfragen ausgeführt.'};
  const grade=parseGrade(grading);if(!grade)return {status:'unsupported',message:'Grading-Anbieter und Note prüfen.'};
  const reference=grade.referenceCompany+' '+grade.referenceGrade;
  const key=Deno.env.get('GRADING_RAPIDAPI_KEY');

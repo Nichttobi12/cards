@@ -1,3 +1,4 @@
+import {trendValues} from './price-policy.ts';
 import {db} from './data.ts';
 export function validatePriceInput(b:any){
  const price=Number(String(b.price??'').replace(',','.')),cents=Math.round(price*100),date=String(b.observedOn||'');let url:URL;
@@ -17,7 +18,7 @@ export async function submitPrice(owner:string,b:any){
  await d.prepare('INSERT INTO price_submissions (id,owner,row_id,card_id,card_name,language,variant,condition,price_cents,source_url,observed_on,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,owner,row.id,row.card_id,String(data.name||row.card_id),row.language,row.variant,'NM',input.cents,input.url,input.date,'pending').run();
  const own=(await d.prepare('SELECT * FROM cards WHERE owner = ? AND card_id = ? AND language = ?').bind(owner,row.card_id,row.language).all()).results;
  for(const r of own.filter((r:any)=>r.variant===row.variant&&r.condition==='NM'&&!r.grading)){
- const existing=JSON.parse(r.data);existing.marketLanguage=r.language;existing.personalMarketQuote={price:input.cents/100,language:row.language,variant:row.variant,condition:'NM',scope:'personal',source:'Cardmarket · eigener Vorschlag',updated:input.date,sourceUrl:input.url,status:'pending',submissionId:id};
+ const existing=JSON.parse(r.data);existing.marketLanguage=r.language;existing.personalMarketQuote={price:input.cents/100,language:row.language,variant:row.variant,condition:'NM',scope:'personal',trendBaseline:trendValues(existing,r.language),source:'Cardmarket · eigener Vorschlag',updated:input.date,sourceUrl:input.url,status:'pending',submissionId:id};
  await d.prepare('UPDATE cards SET data = ? WHERE id = ? AND owner = ?').bind(JSON.stringify(existing),r.id,owner).run();
  }
  return {ok:true};

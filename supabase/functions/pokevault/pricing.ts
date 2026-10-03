@@ -1,8 +1,8 @@
 import {selectedVariant,specialVariant} from './variants.ts';
 export function quote(data:any,variant:string,language?:string){
  const lang=language||data.marketLanguage,exact=data.languageMarketQuotes?.[variant],personal=data.personalMarketQuote;
- if(personal?.scope==='personal'&&personal.language===lang&&personal.variant===variant&&Number.isFinite(personal.price)&&personal.price>0)return {...personal};
- if(exact?.scope==='language'&&exact.language===lang&&exact.variant===variant&&Number.isFinite(exact.price)&&exact.price>0)return {...exact,updated:exact.updated||exact.fetchedAt,stale:!!data.languagePriceStale};
+ if(personal?.scope==='personal'&&!personal.reviewRequired&&personal.language===lang&&personal.variant===variant&&Number.isFinite(personal.price)&&personal.price>0)return {...personal};
+ if(exact?.scope==='language'&&!exact.reviewRequired&&(lang==='de'||exact.manualApproved)&&exact.language===lang&&exact.variant===variant&&Number.isFinite(exact.price)&&exact.price>0)return {...exact,updated:exact.updated||exact.fetchedAt,stale:!!data.languagePriceStale};
  const v=selectedVariant(data,variant),specific=v?.pricing?.cardmarket;
  // A different pattern/stamp is a different product, never reuse the base price.
  if(!specific&&specialVariant(v))return {price:null,updated:null};

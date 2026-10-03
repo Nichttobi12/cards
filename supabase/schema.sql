@@ -122,3 +122,49 @@ begin
 end $$;
 revoke all on function public.portal_review_price(text,uuid,text) from public,anon,authenticated;
 grant execute on function public.portal_review_price(text,uuid,text) to service_role;
+
+alter table public.collections add column kind text not null default 'cards' check(kind in ('cards','sealed'));
+create table public.sealed_items (
+ id text primary key, owner uuid not null references public.portal_accounts(user_id),collection_id text not null,
+ product_id text not null,quantity integer not null check(quantity between 1 and 9999),
+ cost_cents bigint check(cost_cents between 0 and 100000000),value_cents bigint check(value_cents between 0 and 100000000),
+ condition text not null check(condition in ('Originalversiegelt','Folie beschädigt','Verpackung beschädigt')),note text not null default '',created_at timestamptz not null default now(),
+ foreign key(collection_id,owner) references public.collections(id,owner)
+);
+create index sealed_items_owner on public.sealed_items(owner);
+alter table public.sealed_items enable row level security;
+revoke all on public.sealed_items from anon,authenticated;
+grant all on public.sealed_items to service_role;
+create or replace function public.portal_collection_kind() returns trigger language plpgsql security invoker set search_path=public as $$
+begin
+ if not exists(select 1 from public.collections where id=new.collection_id and owner=new.owner and kind=case when TG_TABLE_NAME='cards' then 'cards' else 'sealed' end) then raise exception 'Collection type mismatch'; end if;
+ return new;
+end $$;
+revoke all on function public.portal_collection_kind() from public,anon,authenticated;
+create trigger cards_collection_kind before insert or update of collection_id,owner on public.cards for each row execute function public.portal_collection_kind();
+create trigger sealed_collection_kind before insert or update of collection_id,owner on public.sealed_items for each row execute function public.portal_collection_kind();
+
+alter table public.price_submissions add column needs_review boolean not null default false;
+create or replace function public.portal_review_price(submission_id text,reviewer_id uuid,decision text)
+returns jsonb language plpgsql security invoker set search_path=public as $$
+declare s public.price_submissions; q jsonb; shared jsonb;
+begin
+ if not exists(select 1 from public.portal_accounts where user_id=reviewer_id and role='admin' and active) then raise exception 'Admin required'; end if;
+ if decision not in ('approved','rejected') then raise exception 'Invalid decision'; end if;
+ select * into s from public.price_submissions where id=submission_id for update;
+ if not found then raise exception 'Submission missing'; end if;
+ if s.status<>'pending' then return jsonb_build_object('alreadyReviewed',true); end if;
+ update public.price_submissions set status=decision,needs_review=false,reviewed_by=reviewer_id,reviewed_at=now() where id=s.id;
+ if decision='approved' then
+ q=jsonb_build_object('price',s.price_cents/100.0,'language',s.language,'variant',s.variant,'condition','NM','scope','language','metric','asking-low','source','Cardmarket · manuell geprüft','manualApproved',true,'updated',s.observed_on,'fetchedAt',now(),'sourceUrl',s.source_url);
+ insert into public.market_quotes(id,data,updated_at) values(s.card_id||'/'||s.language,jsonb_build_object('marketLanguage',s.language,'languagePriceStatus','available','languageMarketQuotes',jsonb_build_object(s.variant,q)),now())
+ on conflict(id) do update set data=market_quotes.data || jsonb_build_object('marketLanguage',s.language,'languagePriceStatus','available','languageMarketQuotes',coalesce(market_quotes.data->'languageMarketQuotes','{}'::jsonb)||jsonb_build_object(s.variant,q)),updated_at=now()
+ returning data into shared;
+ update public.cards set data=((data::jsonb - 'personalMarketQuote') || shared)::text where card_id=s.card_id and language=s.language and variant=s.variant and condition='NM';
+ else
+ update public.cards set data=jsonb_set(data::jsonb,'{personalMarketQuote,status}','"rejected"'::jsonb)::text where owner=s.owner and data::jsonb->'personalMarketQuote'->>'submissionId'=s.id;
+ end if;
+ return jsonb_build_object('ok',true);
+end $$;
+revoke all on function public.portal_review_price(text,uuid,text) from public,anon,authenticated;
+grant execute on function public.portal_review_price(text,uuid,text) to service_role;

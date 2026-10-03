@@ -1,14 +1,4 @@
-create table public.price_submissions (
- id text primary key, owner uuid not null references public.portal_accounts(user_id), row_id text not null,
- card_id text not null, card_name text not null, language text not null check(language in ('de','en','ja','fr','it','es')),
- variant text not null, condition text not null check(condition='NM'), price_cents bigint not null check(price_cents between 1 and 100000000),
- source_url text not null, observed_on date not null, status text not null default 'pending' check(status in ('pending','approved','rejected')),
- created_at timestamptz not null default now(), reviewed_by uuid, reviewed_at timestamptz
-);
-create index price_submissions_pending on public.price_submissions(status,created_at);
-alter table public.price_submissions enable row level security;
-revoke all on public.price_submissions from anon,authenticated;
-grant all on public.price_submissions to service_role;
+alter table public.price_submissions add column needs_review boolean not null default false;
 create or replace function public.portal_review_price(submission_id text,reviewer_id uuid,decision text)
 returns jsonb language plpgsql security invoker set search_path=public as $$
 declare s public.price_submissions; q jsonb; shared jsonb;
