@@ -1,0 +1,28 @@
+import {strict as assert} from 'node:assert';
+import {build} from 'esbuild';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const temp=await mkdtemp(join(tmpdir(),'pv-language-'));
+await build({stdin:{contents:"export * from './supabase/functions/pokevault/language-prices.ts';export * from './supabase/functions/pokevault/pricing.ts';",resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',outfile:join(temp,'test.mjs')});
+const {extractLanguagePrice,matchMarketCard,quote,withLanguagePrices}=await import(join(temp,'test.mjs'));
+const card={id:'30th-155',localId:'155',name:'Jirachi ex',set:{name:'30th Celebration'},variants_detailed:[{type:'holo',variantId:'anniversary',stamp:['30th-anniversary']}],pricing:{cardmarket:{trend:29.22,updated:'2026-10-03'}}};
+const row={id:77,name:'Jirachi ex',card_number:155,episode:{name:'30th Celebration'},prices:{cardmarket:{currency:'EUR',lowest_near_mint:30,lowest_near_mint_DE:40,lowest_near_mint_EN:35,lowest_near_mint_JP:20}},updated_at:'2026-10-03'};
+assert.equal(matchMarketCard([row],card,card.variants_detailed[0]),row);assert.equal(matchMarketCard([row,{...row,id:78}],card,card.variants_detailed[0]),null);
+assert.equal(matchMarketCard([{...row,episode:{name:'Different Set'}}],card,card.variants_detailed[0]),null);
+assert.equal(extractLanguagePrice(row,'de','anniversary').price,40);assert.equal(extractLanguagePrice(row,'en','anniversary').price,35);assert.equal(extractLanguagePrice(row,'ja','anniversary').price,20);
+assert.equal(extractLanguagePrice({...row,prices:{cardmarket:{currency:'EUR',lowest_near_mint:30,trend:29}}},'de','anniversary'),null);
+assert.equal(extractLanguagePrice({...row,prices:{cardmarket:{currency:'USD',lowest_near_mint_DE:40}}},'de','anniversary'),null);
+const enriched={...card,marketLanguage:'de',languageMarketQuotes:{anniversary:extractLanguagePrice(row,'de','anniversary')}};
+assert.equal(quote(enriched,'anniversary','de').price,40);assert.equal(quote(enriched,'anniversary','de').scope,'language');assert.notEqual(quote(enriched,'anniversary','en').price,40);
+const simple={variants:{normal:true},pricing:{cardmarket:{trend:29.22}}};assert.equal(quote(simple,'normal').scope,'general');
+const cache=new Map();let providerCalls=0;
+globalThis.Deno={env:{get:n=>({SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_SECRET_KEYS:'{"default":"sb_secret_test"}',GRADING_RAPIDAPI_KEY:'fixture'}[n])}};
+globalThis.fetch=async(input,opts={})=>{const u=new URL(input),body=opts.body?JSON.parse(opts.body):null;
+ if(u.pathname==='/rest/v1/market_quotes'){if(opts.method==='POST'){cache.set(body.id,body);return Response.json([body]);}return Response.json(cache.has(u.searchParams.get('id')?.slice(3))?[cache.get(u.searchParams.get('id').slice(3))]:[]);}
+ if(u.pathname==='/rest/v1/rpc/portal_login_attempt')return Response.json([{attempts:1}]);
+ if(u.hostname==='api.tcgdex.net')return Response.json(card);
+ if(u.hostname==='cardmarket-api-tcg.p.rapidapi.com'){providerCalls++;return Response.json({data:[row]});}throw Error('Unexpected '+u.pathname);
+};
+assert.equal((await withLanguagePrices(card,'de')).languageMarketQuotes.anniversary.price,40);assert.equal((await withLanguagePrices(card,'de')).languageMarketQuotes.anniversary.price,40);assert.equal(providerCalls,1);
+console.log('Passed language pricing: exact set/number/name and printing, ambiguous matches rejected, distinct DE/EN/JP prices, general fields never treated as language prices, EUR required, wrong language isolation and persistent shared cache.');await rm(temp,{recursive:true,force:true});

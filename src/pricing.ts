@@ -1,1 +1,1 @@
-export {quote} from '../supabase/functions/pokevault/pricing';
+export {quote,quoteLabel} from '../supabase/functions/pokevault/pricing';

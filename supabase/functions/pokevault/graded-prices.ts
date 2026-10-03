@@ -71,9 +71,9 @@ export async function gradedPrice(id:string,language:string,grading:string,varia
  if(!key)return {status:'not_configured',reference,comparison:grade.comparison,message:'Die automatische Grading-Preisquelle ist noch nicht verbunden.'};
  const cacheKey=language+'/'+id+'/'+variant+'/'+grading,hit=cache.get(cacheKey);if(hit&&hit.expires>Date.now())return hit.data;
  try{
- const card=await catalog('cards/'+id,language==='ja'?'ja':'en');
+ const card=await catalog('cards/'+id,language==='ja'?'ja':'en',false);
  const printing=variant?selectedVariant(card,variant):undefined;
- const fallback=async()=>portfolioGradingEstimate((await db().prepare('SELECT data, variant, grading FROM cards').all()).results,await catalog('cards/'+id,language),grading,variant||selectedVariant(card,'Standard')?.value||card.variants_detailed?.[0]?.variantId||'Standard');
+ const fallback=async()=>portfolioGradingEstimate((await db().prepare('SELECT data, variant, grading FROM cards').all()).results,await catalog('cards/'+id,language,false),grading,variant||selectedVariant(card,'Standard')?.value||card.variants_detailed?.[0]?.variantId||'Standard');
  if(variant&&!printing)return {status:'unmatched',message:'Kartenvariante in der Grading-Quelle nicht zuordenbar.'};
  const detailKey=(language==='ja'?'ja/':'')+id+'/'+variant,prior=cardCache.get(detailKey);let detail:any,quote:any;
  if(prior&&prior.expires>Date.now())detail=prior.data;

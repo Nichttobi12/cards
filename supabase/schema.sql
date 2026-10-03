@@ -81,3 +81,9 @@ $$;
 revoke all on function public.portal_login_attempt(text,bigint) from public,anon,authenticated;
 grant execute on function public.portal_login_attempt(text,bigint) to service_role;
 insert into public.portal_scheduler_secret(token) values(gen_random_uuid()::text||gen_random_uuid()::text);
+
+-- Server-only cache for explicitly language-scoped Cardmarket offers.
+create table if not exists public.market_quotes (id text primary key,data jsonb not null,updated_at timestamptz not null default now());
+alter table public.market_quotes enable row level security;
+revoke all on public.market_quotes from anon, authenticated;
+grant all on public.market_quotes to service_role;

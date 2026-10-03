@@ -12,7 +12,7 @@ async function rest(path:string,options:RequestInit={}):Promise<any[]>{
  if(!r.ok){console.error('Database operation failed',r.status);throw Error('Datenbankabfrage fehlgeschlagen.');}
  return r.status===204?[]:r.json() as Promise<any[]>;
 }
-const tables=new Set(['collections','cards','portfolio_snapshots','portal_accounts','login_attempts','refresh_jobs','card_images','photo_submissions']);
+const tables=new Set(['collections','cards','portfolio_snapshots','portal_accounts','login_attempts','refresh_jobs','card_images','photo_submissions','market_quotes']);
 // Compatibility for the small, fixed set of internal queries used by this portal.
 // SQL never comes from a request, and is never executed as arbitrary SQL.
 class Statement{
