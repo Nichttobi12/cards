@@ -4,7 +4,7 @@ create table public.portal_accounts (
  slot smallint primary key,
  role text not null default 'user' check(role in ('admin','user')),
  active boolean not null default true,
- username text not null unique check(username ~ '^[a-z0-9_]{3,30}$'),
+ username text not null unique check(username ~ '^[A-Za-z0-9_]{3,30}$'),
  email text not null unique check(email=lower(email)),
  user_id uuid unique references auth.users(id) on delete restrict,
  created_at timestamptz not null default now()

@@ -43,4 +43,6 @@ export async function storage(path:string,options:RequestInit={}):Promise<any>{
  if(!r.ok)throw Error('Foto konnte nicht gespeichert oder geladen werden.');return r.json();
 }
 
-export async function rpc(name:string,body:any){if(name!=='portal_review_photo')throw Error('Unsupported operation');return rest('rpc/'+name,{method:'POST',body:JSON.stringify(body)});}
+export async function rpc(name:string,body:any){if(!['portal_review_photo','portal_register_account'].includes(name))throw Error('Unsupported operation');return rest('rpc/'+name,{method:'POST',body:JSON.stringify(body)});}
+
+export async function adminAuth(path:string,options:RequestInit){if(path!=='admin/users')throw Error('Unsupported auth action');const key=adminKey();return fetch(env.SUPABASE_URL+'/auth/v1/'+path,{...options,headers:{apikey:key,'Content-Type':'application/json',...(key.startsWith('eyJ')?{Authorization:'Bearer '+key}:{})},signal:AbortSignal.timeout(15000)});}
