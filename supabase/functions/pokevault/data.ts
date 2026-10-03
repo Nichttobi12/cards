@@ -21,7 +21,7 @@ class Statement{
   const s=this.sql.replace(/\s+/g,' ').trim();let index=0;
   const filters=(where:string,q:URLSearchParams)=>{for(const term of where.split(/ AND /i)){const m=term.trim().match(/^(\w+)\s*(=|<)\s*\?$/);if(!m)throw Error('Unsupported query filter');q.set(m[1],(m[2]==='='?'eq.':'lt.')+String(this.values[index++]));}};
   let m=s.match(/^SELECT (DISTINCT )?(.+?) FROM (\w+)(?: WHERE (.+?))?(?: ORDER BY (\w+)( DESC)?)?$/i);
-  if(m){if(!tables.has(m[3]))throw Error('Unsupported table');const q=new URLSearchParams({select:m[2]});if(m[4])filters(m[4],q);if(m[5])q.set('order',m[5]+(m[6]?'.desc':'.asc'));let rows:any[]=await rest(m[3]+'?'+q);if(m[1])rows=[...new Map(rows.map(r=>[JSON.stringify(r),r])).values()];return rows;}
+  if(m){if(!tables.has(m[3]))throw Error('Unsupported table');const q=new URLSearchParams({select:m[2]});if(m[4])filters(m[4],q);if(m[5])q.set('order',m[5]+(m[6]?'.desc':'.asc'));let rows:any[]=[];for(let offset=0;offset<100000;offset+=1000){const chunk=await rest(m[3]+'?'+q,{headers:{Range:offset+'-'+(offset+999),'Range-Unit':'items'}});rows.push(...chunk);if(chunk.length<1000)break;}if(m[1])rows=[...new Map(rows.map(r=>[JSON.stringify(r),r])).values()];return rows;}
   m=s.match(/^INSERT INTO (\w+) \(([^)]+)\) VALUES \(([^)]+)\)(.*)$/i);
   if(m){if(!tables.has(m[1]))throw Error('Unsupported table');if(m[1]==='login_attempts')return await rest('rpc/portal_login_attempt',{method:'POST',body:JSON.stringify({attempt_id:this.values[0],attempt_window:this.values[1]})});
    const columns=m[2].split(',').map(x=>x.trim());const body=Object.fromEntries(columns.map((c,i)=>[c,this.values[i]]));const conflict=m[4].match(/ON CONFLICT\(([\w, ]+)\)/i);const q=conflict?'?on_conflict='+conflict[1].replace(/ /g,''):'';

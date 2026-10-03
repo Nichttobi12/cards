@@ -32,7 +32,7 @@ begin
  if not found then return jsonb_build_object('ok',false,'alreadyReviewed',true); end if;
  if decision='approved' then
   if not exists(select 1 from public.portal_accounts where user_id=item.owner and active) then raise exception 'Inactive account'; end if;
-  insert into public.card_images(id,owner,card_id,language,photo_path,updated_at) values(item.id,item.owner,item.card_id,item.language,item.photo_path,now()::text)
+  insert into public.card_images(id,owner,card_id,language,photo_path,updated_at) values(item.id::uuid,item.owner,item.card_id,item.language,item.photo_path,now())
   on conflict(owner,card_id,language) do update set photo_path=excluded.photo_path,updated_at=excluded.updated_at;
  end if;
  update public.photo_submissions set status=decision,reviewed_by=reviewer_id,reviewed_at=now()::text where id=item.id;
