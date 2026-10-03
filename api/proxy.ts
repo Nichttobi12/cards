@@ -3,7 +3,7 @@ const project='https://ctwwwlfbrtkvkpxmwyfa.supabase.co';
 export default async function handler(req:any,res:any){
  res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
  const path=String(req.query.route||'');
- if(!['auth','auth/refresh','auth/logout','vault'].includes(path)){res.status(404).json({error:'Nicht gefunden.'});return;}
+ if(!['auth','auth/refresh','auth/logout','auth/recover','auth/reset','vault'].includes(path)){res.status(404).json({error:'Nicht gefunden.'});return;}
  if(!['GET','POST'].includes(req.method)){res.status(405).json({error:'Methode nicht erlaubt.'});return;}
  if(req.method==='POST'&&req.headers.origin){const host=String(req.headers.host||'');if(req.headers.origin!=='https://'+host){res.status(403).json({error:'Anfrage abgelehnt.'});return;}}
  try{const q=new URLSearchParams();for(const [name,value] of Object.entries(req.query)){if(name==='route')continue;if(typeof value==='string')q.set(name,value);}

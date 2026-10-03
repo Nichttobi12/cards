@@ -9,6 +9,14 @@
   },
   "rewrites": [
     {
+      "source": "/api/auth/recover",
+      "destination": "/api/proxy?route=auth%2Frecover"
+    },
+    {
+      "source": "/api/auth/reset",
+      "destination": "/api/proxy?route=auth%2Freset"
+    },
+    {
       "source": "/api/auth/refresh",
       "destination": "/api/proxy?route=auth%2Frefresh"
     },
