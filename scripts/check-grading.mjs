@@ -21,6 +21,9 @@ assert.equal(comparableGradedPrice({...row,prices:{ebay:{currency:'USD',graded:{
 assert.equal(matchGradedCard([row],card,{type:'Reverse',foil:'Masterball'}),null);
 assert.equal(retainGradedQuote({status:'available',appliedGrading:'AOG 9',priceEur:100,variant:'normal'},{status:'unavailable'},'AOG 9','normal').stale,true);assert.equal(retainGradedQuote({status:'available',appliedGrading:'AOG 9',variant:'normal'},{status:'missing'},'AOG 9','reverse').status,'missing');
 assert.equal(extractGradedPrice({...row,prices:{ebay:{currency:'USD',graded:{psa:{'10':{median_price:200,sample_size:0}}}}}},'PSA 10'),null);
+const aogSales={...row,prices:{ebay:{currency:'USD',graded:{...row.prices.ebay.graded,aog:{'10':{median_price:170,sample_size:4},'9.5':{median_price:160,sample_size:2}}}}}};
+assert.equal(comparableGradedPrice(aogSales,'AOG 10').price,170);assert.equal(comparableGradedPrice(aogSales,'AOG 10').estimated,false);assert.equal(comparableGradedPrice(aogSales,'AOG 10').comparison,false);assert.equal(comparableGradedPrice(aogSales,'AOG 10').reference,'AOG 10');assert.equal(comparableGradedPrice(aogSales,'AOG 9.5').price,160);
+assert.equal(comparableGradedPrice({...aogSales,updated_at:'2020-01-01'},'AOG 10'),null);
 let key='',calls=0,budget=0;
 globalThis.Deno={env:{get:n=>({GRADING_RAPIDAPI_KEY:key,SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_SECRET_KEYS:'{"default":"sb_secret_fixture"}'}[n])}};
 assert.equal((await gradedPrice(card.id,'de','AOG 9.5')).status,'not_configured');
@@ -32,7 +35,7 @@ globalThis.fetch=async(input,opts={})=>{const u=new URL(input);
  throw Error('Unexpected request '+u.hostname);
 };
 key='fixture-only';
-const q=await gradedPrice(card.id,'de','PSA 10');assert.equal(q.status,'available');assert.equal(q.priceEur,100);assert.equal(q.sales,5);assert.equal(q.languageScope,'international');
+const q=await gradedPrice(card.id,'de','PSA 10');assert.equal(q.status,'available');assert.equal(q.priceEur,100);assert.equal(q.sales,5);assert.equal(q.languageScope,'international');assert.equal(q.estimated,false);assert.equal(q.comparison,false);
 const comparison=await gradedPrice(card.id,'de','AOG 9.5');assert.equal(comparison.priceEur,100);assert.equal(comparison.comparison,true);assert.equal(comparison.appliedGrading,'AOG 9.5');assert.equal(calls,1);
 assert.equal(gradedValue({gradedQuote:comparison},'AOG 9.5'),100);assert.equal(gradedValue({gradedQuote:comparison},'AOG 9'),null);assert.equal(gradedValue({gradedQuote:{status:'missing'}},'PSA 10'),null);
 budget=95;const capped=await gradedPrice('sv02-270','en','PSA 9');assert.equal(capped.status,'unavailable');assert.equal(calls,1);

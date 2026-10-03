@@ -18,6 +18,7 @@ export function extractGradedPrice(card:any,grading:string){
  const g=parseGrade(grading);if(!g)return null;
  const tier=card.prices?.ebay?.graded?.[g.referenceCompany.toLowerCase()]?.[String(g.referenceGrade)];
  const price=tier?.median_price,count=tier?.sample_size;
+ const stamp=tier?.last_sale_at||tier?.updated_at||card.updated_at;if(stamp&&Number.isFinite(Date.parse(stamp))&&Date.now()-Date.parse(stamp)>90*86400000)return null;
  // A listing/asking price or a raw price must never masquerade as a sale median.
  if(typeof price!=='number'||!Number.isFinite(price)||price<=0||!Number.isInteger(count)||count<1)return null;
  const currency=card.prices.ebay.currency;if(!['EUR','USD'].includes(currency))return null;
@@ -25,6 +26,12 @@ export function extractGradedPrice(card:any,grading:string){
 }
 export function comparableGradedPrice(card:any,grading:string){
  const g=parseGrade(grading);if(!g)return null;
+ // Actual sales for the requested firm and grade always precede proxies.
+ const directTier=card.prices?.ebay?.graded?.[g.company.toLowerCase()]?.[String(g.grade)];
+ const currency=card.prices?.ebay?.currency;
+ const saleDate=directTier?.last_sale_at||directTier?.updated_at||card.updated_at;
+ const current=!saleDate||!Number.isFinite(Date.parse(saleDate))||Date.now()-Date.parse(saleDate)<=90*86400000;
+ if(current&&directTier?.median_price>0&&Number.isFinite(directTier.median_price)&&Number.isInteger(directTier.sample_size)&&directTier.sample_size>=1&&['EUR','USD'].includes(currency))return {price:directTier.median_price,currency,sales:directTier.sample_size,...g,referenceCompany:g.company,referenceGrade:g.grade,comparison:false,estimated:false,reference:g.company+' '+g.grade,estimateReason:null};
  const exact=extractGradedPrice(card,grading);if(exact)return {...exact,reference:g.referenceCompany+' '+g.referenceGrade,estimated:g.comparison,estimateReason:g.comparison?'AOG ab 9,5: PSA 10 als Vergleich gemäß deiner Einstellung.':null};
  // Compare the same numerical grade only. Company scales are not equivalent;
  // this is explicitly an estimate, never a sale of the requested slab.
@@ -77,7 +84,7 @@ export async function gradedPrice(id:string,language:string,grading:string,varia
  if(!quote)return {status:'missing',reference,comparison:grade.comparison,message:'Keine belegten Verkäufe für diese Note oder ausreichend vergleichbare Verkäufe anderer Grading-Firmen.'};
  let priceEur:number|null=quote.currency==='EUR'?quote.price:null,fxDate:string|null=null;
  if(priceEur===null){try{const r=await fetch('https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml',{signal:AbortSignal.timeout(8000)});if(r.ok){const xml=await r.text(),rate=Number(xml.match(/currency=['"]USD['"]\s+rate=['"]([\d.]+)['"]/)?.[1]);fxDate=xml.match(/time=['"]([\d-]+)['"]/)?.[1]||null;if(rate>0&&fxDate&&Date.now()-Date.parse(fxDate)<7*86400000)priceEur=Math.round(quote.price/rate*100)/100;}}catch{}}
- const result={appliedGrading:grading,status:'available',reference:quote.reference,comparison:quote.comparison,estimated:true,estimateReason:[quote.estimateReason,'Internationaler Verkaufsvergleich: die Sprache wird von der Quelle nicht getrennt ausgewiesen.'].filter(Boolean).join(' '),variant,price:quote.price,currency:quote.currency,priceEur,sales:quote.sales,algorithm:!!quote.algorithm,modelFactor:quote.factor||null,modelMethod:quote.modelMethod||null,modelCards:quote.modelCards||0,sourcePrice:quote.sourcePrice||null,source:quote.algorithm?'Modellschätzung aus eBay-Vergleichsverkäufen via CMAPI':'eBay-Verkaufsmedian via CMAPI',fetchedAt:new Date().toISOString(),sourceUpdated:detail.updated_at||null,fxDate,languageScope:'international',languageNote:'Die Quelle weist die Sprache der Grading-Verkäufe nicht getrennt aus. Internationaler Vergleichswert; kein spezifischer deutscher Kartenpreis.'};
+ const result={appliedGrading:grading,status:'available',reference:quote.reference,comparison:!!quote.comparison,estimated:!!(quote.estimated||quote.comparison||quote.algorithm),estimateReason:quote.estimateReason||null,variant,price:quote.price,currency:quote.currency,priceEur,sales:quote.sales,algorithm:!!quote.algorithm,modelFactor:quote.factor||null,modelMethod:quote.modelMethod||null,modelCards:quote.modelCards||0,sourcePrice:quote.sourcePrice||null,source:quote.algorithm?'Modellschätzung aus eBay-Vergleichsverkäufen via CMAPI':'eBay-Verkaufsmedian via CMAPI',fetchedAt:new Date().toISOString(),sourceUpdated:detail.updated_at||null,fxDate,languageScope:'international',languageNote:'Die Quelle weist die Sprache der Grading-Verkäufe nicht getrennt aus. Internationaler Vergleichswert; kein spezifischer deutscher Kartenpreis.'};
  if(cache.size>300)cache.clear();cache.set(cacheKey,{expires:Date.now()+86400000,data:result});return result;
  }catch(e){return {status:'unavailable',reference,comparison:grade.comparison,message:e instanceof Error?e.message:'Grading-Preisabruf fehlgeschlagen.'};}
 }

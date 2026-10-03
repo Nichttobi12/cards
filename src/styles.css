@@ -43,3 +43,4 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 @media(max-width:760px){.set-folder-art{width:94px;height:78px}.set-folder{min-height:104px}}
 
 .set-folders{grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))}.set-folder-info{min-width:0}.set-folder-info strong{overflow-wrap:normal;word-break:normal}
+.member-search{margin:20px 0;max-width:600px}.moderation-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:20px;margin:24px 0}.moderation-photo{width:100%;height:300px;object-fit:contain;border-radius:14px;background:var(--surface)}.admin-user-list{display:grid;gap:10px;max-width:640px}.admin-user-list>div{display:flex;justify-content:space-between;gap:16px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:14px}.admin-page h2{margin-top:32px}.admin-page .button-row{margin-top:16px}.mobile-tabs{grid-template-columns:repeat(auto-fit,minmax(0,1fr))}

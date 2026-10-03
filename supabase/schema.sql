@@ -1,7 +1,9 @@
 -- Schema snapshot. Actual deployments are tracked in Supabase migration history.
 -- No account email addresses or passwords are stored in this repository.
 create table public.portal_accounts (
- slot smallint primary key check(slot in (1,2)),
+ slot smallint primary key,
+ role text not null default 'user' check(role in ('admin','user')),
+ active boolean not null default true,
  username text not null unique check(username ~ '^[a-z0-9_]{3,30}$'),
  email text not null unique check(email=lower(email)),
  user_id uuid unique references auth.users(id) on delete restrict,
@@ -55,7 +57,7 @@ alter table public.collections enable row level security;
 alter table public.cards enable row level security;
 alter table public.portfolio_snapshots enable row level security;
 revoke all on public.collections, public.cards, public.portfolio_snapshots from anon, authenticated;
-grant select,insert,update,delete on public.collections, public.cards to authenticated;
+grant select on public.collections, public.cards to authenticated;
 grant select on public.portfolio_snapshots to authenticated;
 grant all on public.collections,public.cards,public.portfolio_snapshots to service_role;
 create policy collections_own on public.collections for all to authenticated using (owner=(select auth.uid())) with check (owner=(select auth.uid()));

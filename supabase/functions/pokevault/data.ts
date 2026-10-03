@@ -12,7 +12,7 @@ async function rest(path:string,options:RequestInit={}):Promise<any[]>{
  if(!r.ok){console.error('Database operation failed',r.status);throw Error('Datenbankabfrage fehlgeschlagen.');}
  return r.status===204?[]:r.json() as Promise<any[]>;
 }
-const tables=new Set(['collections','cards','portfolio_snapshots','portal_accounts','login_attempts','refresh_jobs','card_images']);
+const tables=new Set(['collections','cards','portfolio_snapshots','portal_accounts','login_attempts','refresh_jobs','card_images','photo_submissions']);
 // Compatibility for the small, fixed set of internal queries used by this portal.
 // SQL never comes from a request, and is never executed as arbitrary SQL.
 class Statement{
@@ -42,3 +42,5 @@ export async function storage(path:string,options:RequestInit={}):Promise<any>{
  const r=await fetch(env.SUPABASE_URL+'/storage/v1/'+path,{...options,headers:{...headers,...options.headers},signal:AbortSignal.timeout(20000)});
  if(!r.ok)throw Error('Foto konnte nicht gespeichert oder geladen werden.');return r.json();
 }
+
+export async function rpc(name:string,body:any){if(name!=='portal_review_photo')throw Error('Unsupported operation');return rest('rpc/'+name,{method:'POST',body:JSON.stringify(body)});}
