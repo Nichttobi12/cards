@@ -1,0 +1,13 @@
+import {strict as assert} from 'node:assert';
+import {build} from 'esbuild';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {join} from 'node:path';import {tmpdir} from 'node:os';
+const dir=await mkdtemp(join(tmpdir(),'variants-'));
+for(const name of ['pricing','variants'])await build({entryPoints:['supabase/functions/pokevault/'+name+'.ts'],bundle:true,platform:'node',format:'esm',outfile:join(dir,name+'.mjs')});
+const {quote}=await import(join(dir,'pricing.mjs')),{cardVariants,variantLabel}=await import(join(dir,'variants.mjs'));
+const card={variants:{normal:true,reverse:true},pricing:{cardmarket:{trend:1,'trend-holo':2}}};
+assert.deepEqual(cardVariants(card).map(v=>v.label),['Normal','Reverse Holo']);assert.equal(quote(card,'normal').price,1);assert.equal(quote(card,'reverse').price,2);assert.equal(quote(card,'unknown').price,null);
+const detailed={...card,variants_detailed:[{variantId:'a',type:'Reverse',foil:'Pokeball',pricing:{cardmarket:{trend:3}}},{variantId:'b',type:'Reverse',foil:'Masterball',pricing:{cardmarket:{trend:30}}},{variantId:'c',type:'Holo',stamp:['pokemon-center'],languages:['en']}]};
+assert.equal(cardVariants(detailed,'de').length,2);assert.equal(variantLabel(detailed.variants_detailed[0]),'Reverse Holo · Pokéball');assert.equal(variantLabel(detailed.variants_detailed[1]),'Reverse Holo · Meisterball');assert.equal(quote(detailed,'a').price,3);assert.equal(quote(detailed,'b').price,30);assert.equal(quote(detailed,'c').price,null);
+assert.equal(quote({...card,variants_detailed:[{variantId:'d',type:'Reverse',foil:'Masterball'}]},'d').price,null);
+await rm(dir,{recursive:true,force:true});console.log('Passed language-specific variant labels, legacy normal/reverse, separate Pokéball/Meisterball prices and no base-price substitution for missing special variants.');

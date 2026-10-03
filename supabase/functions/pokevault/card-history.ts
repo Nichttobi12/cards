@@ -8,7 +8,7 @@ export function observePrices(previous:any,data:any,variant:string,grading:strin
  const history:CardPricePoint[]=(Array.isArray(previous?.cardPriceHistory)?previous.cardPriceHistory:[]).filter((p:any)=>/^\d{4}-\d{2}-\d{2}$/.test(p.day)&&p.day>=cardDay(cutoff)&&p.day<=day).map((p:any)=>({...p,grades:{...p.grades}}));
  const market=quote(data,variant),gradePrice=grading?gradedValue(data,grading):null;
  const old=history.find(p=>p.day===day),point:CardPricePoint={day,raw:market.price,rawSourceDate:market.updated,grades:{...old?.grades}};
- if(gradePrice!==null)point.grades[grading]={price:gradePrice,comparison:!!data.gradedQuote?.comparison,sourceDate:data.gradedQuote?.sourceUpdated||data.gradedQuote?.fetchedAt||null};
+ if(gradePrice!==null)point.grades[grading]={price:gradePrice,comparison:!!(data.gradedQuote?.comparison||data.gradedQuote?.estimated),sourceDate:data.gradedQuote?.sourceUpdated||data.gradedQuote?.fetchedAt||null};
  const points=history.filter(p=>p.day!==day);points.push(point);points.sort((a,b)=>a.day.localeCompare(b.day));
  return {...data,cardPriceHistory:points};
 }
