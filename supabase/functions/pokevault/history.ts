@@ -1,3 +1,4 @@
+import {observePrices,seedCardHistory} from './card-history.ts';
 import {gradedValue} from './grading.ts';
 import {gradedPrice} from './graded-prices.ts';
 import {db,tcg} from './data.ts';
@@ -12,6 +13,6 @@ export async function snapshot(owner:string,failed=0){
 export async function refresh(owner:string,cursor=0,failedSoFar=0){
  const d=db(),rows=(await d.prepare('SELECT * FROM cards WHERE owner = ?').bind(owner).all()).results as any[];
  let updated=0,failed=0;const groups=new Map<string,any[]>();for(const r of rows){const k=r.language+'/'+r.card_id;groups.set(k,[...(groups.get(k)||[]),r]);}
- const items=[...groups.values()];for(let i=cursor;i<Math.min(items.length,cursor+10);i+=5){await Promise.all(items.slice(i,Math.min(i+5,cursor+10)).map(async group=>{try{const data=await tcg(`cards/${group[0].card_id}`,group[0].language);await Promise.all(group.map(async row=>{const enriched=row.grading?{...data,gradedQuote:await gradedPrice(row.card_id,row.language,row.grading)}:data;await d.prepare('UPDATE cards SET data = ?, fetched = ? WHERE id = ? AND owner = ?').bind(JSON.stringify(enriched),new Date().toISOString(),row.id,owner).run();}));updated+=group.length;}catch{failed+=group.length;}}));}
+ const items=[...groups.values()];for(let i=cursor;i<Math.min(items.length,cursor+10);i+=5){await Promise.all(items.slice(i,Math.min(i+5,cursor+10)).map(async group=>{try{const data=await tcg(`cards/${group[0].card_id}`,group[0].language);await Promise.all(group.map(async row=>{const enriched=row.grading?{...data,gradedQuote:await gradedPrice(row.card_id,row.language,row.grading)}:data;await d.prepare('UPDATE cards SET data = ?, fetched = ? WHERE id = ? AND owner = ?').bind(JSON.stringify(observePrices(seedCardHistory(row),enriched,row.variant,row.grading)),new Date().toISOString(),row.id,owner).run();}));updated+=group.length;}catch{failed+=group.length;}}));}
  const nextCursor=cursor+10<items.length?cursor+10:null;if(nextCursor===null)await snapshot(owner,failedSoFar+failed);return {updated,failed,nextCursor};
 }
