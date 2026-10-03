@@ -6,7 +6,7 @@ export function observePrices(previous:any,data:any,variant:string,grading:strin
  const date=new Date(captured);if(!Number.isFinite(date.getTime()))return data;
  const day=cardDay(date),cutoff=new Date(date);cutoff.setUTCDate(cutoff.getUTCDate()-89);
  const history:CardPricePoint[]=(Array.isArray(previous?.cardPriceHistory)?previous.cardPriceHistory:[]).filter((p:any)=>/^\d{4}-\d{2}-\d{2}$/.test(p.day)&&p.day>=cardDay(cutoff)&&p.day<=day).map((p:any)=>({...p,grades:{...p.grades}}));
- const market=quote(data,variant),gradePrice=grading?gradedValue(data,grading):null;
+ const market=quote({...data,personalMarketQuote:undefined},variant),gradePrice=grading?gradedValue(data,grading):null;
  const old=history.find(p=>p.day===day),point:CardPricePoint={day,raw:market.price,rawSourceDate:market.updated,grades:{...old?.grades}};
  if(gradePrice!==null)point.grades[grading]={price:gradePrice,comparison:!!(data.gradedQuote?.comparison||data.gradedQuote?.estimated),sourceDate:data.gradedQuote?.sourceUpdated||data.gradedQuote?.fetchedAt||null};
  const points=history.filter(p=>p.day!==day);points.push(point);points.sort((a,b)=>a.day.localeCompare(b.day));
