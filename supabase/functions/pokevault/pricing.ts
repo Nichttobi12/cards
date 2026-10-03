@@ -10,12 +10,12 @@ export function quote(data:any,variant:string,language?:string){
  const p=specific||data.pricing?.cardmarket;if(!p)return {price:null,updated:null};
  const reverse=/reverse/i.test(v?.type||variant);
  const value=reverse&&!specific?p['trend-holo']:p.trend;
- return {price:typeof value==='number'&&Number.isFinite(value)&&value>0?value:null,updated:p.updated||null,scope:'general',source:'Cardmarket-Trend · sprachübergreifend',language:lang||null,metric:'trend'};
+ return {price:typeof value==='number'&&Number.isFinite(value)&&value>0?value:null,updated:p.updated||null,scope:'general',source:p.source||'Cardmarket-Trend · sprachübergreifend',language:lang||null,metric:'trend'};
 }
 
 export function quoteLabel(q:any){
  const languages:Record<string,string>={de:'Deutsch',en:'Englisch',ja:'Japanisch',fr:'Französisch',es:'Spanisch',it:'Italienisch'};
  if(q.scope==='personal')return 'Eigener Cardmarket-Preis · '+(q.status==='rejected'?'nicht freigegeben':'Freigabe ausstehend');
  if(q.manualApproved)return 'Cardmarket-Angebot · manuell geprüft · '+(languages[q.language]||q.language)+' · NM';
- return q.scope==='language'?'Cardmarket-Angebot ab · '+(languages[q.language]||q.language)+(q.condition?' · '+q.condition:''):'Cardmarket-Trend · sprachübergreifend';
+ return q.scope==='language'?'Cardmarket-Angebot ab · '+(languages[q.language]||q.language)+(q.condition?' · '+q.condition:''):q.source||'Cardmarket-Trend · sprachübergreifend';
 }

@@ -2,6 +2,10 @@
 // These identify Japanese products; they are not English counterpart expansions.
 // Japanese catalogue: https://github.com/tcgdex/cards-database/tree/master/data-asia
 export const japaneseSetEnglish:Record<string,string>={
+  "mcdonalds-jp-2025": "McDonald's Happy Set 2025 · Japanese Promos",
+  "Pt4": "Advent of Arceus",
+  "AGF": "Arceus LV.X Deck: Grass & Fire",
+  "ALP": "Arceus LV.X Deck: Lightning & Psychic",
   "PMCG1": "Expansion Pack",
   "PMCG2": "Pokémon Jungle",
   "PMCG3": "Mystery of the Fossils",

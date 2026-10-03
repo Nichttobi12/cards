@@ -12,7 +12,7 @@ export function cardMatches(c:any,q:string){return matchesQuery(c,parseCardQuery
 
 export function parseCardQuery(query:string){
  const q=query.normalize('NFKC').trim();
- const id=/^(?:[a-z]+\d[a-z0-9.+]*|MC|MF|(?:SV|S|SM|XY|M)-P|bwp|xyp|smp|swshp|svp|mep|hgssp|dpp)-[a-z0-9]+$/i.test(q)?q:'';
+ const id=/^(?:[a-z]+\d[a-z0-9.+]*|MC|MF|AGF|ALP|(?:SV|S|SM|XY|M)-P|bwp|xyp|smp|swshp|svp|mep|hgssp|dpp)-[a-z0-9]+$/i.test(q)?q:'';
  if(id)return {name:'',number:'',total:'',set:'',id};
  const fraction=q.match(/((?:(?:SV|TG|GG|RC|SH)\s*)?\d{1,3})\s*\/\s*((?:(?:SV|TG|GG|RC|SH)\s*)?\d{1,3})(?!\d)/i);
  const japanesePromo=q.match(/(?:^|\s)(\d{1,3})\s*\/\s*((?:SV|S|SM|XY|M)-P)(?=$|\s)/i)||q.match(/(?:^|\s)((?:SV|S|SM|XY|M)-P)\s+(\d{1,3})(?=$|\s)/i);
@@ -22,7 +22,7 @@ export function parseCardQuery(query:string){
  const p=token?parseNumber(token):{number:'',set:''};
  let name=hit?q.replace(hit[0],' ').trim():q;
  // Printed Japanese set codes may be entered in either case.
- const setCode=name.match(/(?:^|\s)((?:SV|SM|XY|PCG|PMCG|ADV|CP|BW|DP|M|S)\d+[A-Za-z+]*|(?:SV|S|SM|XY|M)-P)(?=$|\s)/i);
+ const setCode=name.match(/(?:^|\s)((?:Pt|SV|SM|XY|PCG|PMCG|ADV|CP|BW|DP|M|S)\d+[A-Za-z+]*|AGF|ALP|(?:SV|S|SM|XY|M)-P)(?=$|\s)/i);
  const set=japanesePromo?(/^\d/.test(japanesePromo[1])?japanesePromo[2]:japanesePromo[1]):setCode?setCode[1]:p.set;
  if(setCode)name=name.replace(setCode[0],' ').trim();
  return {name,number:p.number,total:japanesePromo?'':fraction?fraction[2].replace(/\s/g,'').toUpperCase():'',set,id:''};

@@ -1,0 +1,12 @@
+// Japanese printings absent from TCGdex. Identity checked against Pokémon's
+// official card database; Cardmarket ids checked against its public catalog.
+export const mcdonaldsSet={id:'mcdonalds-jp-2025',searchAliases:['mces','McDonalds','McDonald’s','Mc Donalds'],name:'マクドナルド「ハッピーセット2025」 · プロモ',englishName:"McDonald's Happy Set 2025 · Japanese Promos",releaseDate:'2025-08-09',cardCount:{official:0,total:6}};
+export const japaneseSupplementSets=[
+ {id:'Pt4',name:'アルセウス光臨',englishName:'Advent of Arceus',releaseDate:'2009-07-08',cardCount:{official:90,total:1},catalogNotice:'Ergänzter Katalog: Arceus Lv.X 077/090 ist verfügbar. Weitere Karten dieses Sets folgen.'},
+ {id:'AGF',name:'アルセウスLV.X草＆炎',englishName:'Arceus LV.X Deck: Grass & Fire',releaseDate:'2009-07-08',cardCount:{official:17,total:1},catalogNotice:'Ergänzter Katalog: Arceus Lv.X 011/017 ist verfügbar. Weitere Deckkarten folgen.'},
+ {id:'ALP',name:'アルセウスLV.X雷＆超',englishName:'Arceus LV.X Deck: Lightning & Psychic',releaseDate:'2009-07-08',cardCount:{official:17,total:1},catalogNotice:'Ergänzter Katalog: Arceus Lv.X 011/017 ist verfügbar. Weitere Deckkarten folgen.'}
+];
+const identities=[['Pt4','077',676227,'24222','DPt4-B','Shizurow'],['AGF','011',675992,'24020','DPt4-Sgf','Ryo Ueda'],['ALP','011',675975,'24051','DPt4-Slp','Shizurow']] as const;
+export const japaneseSupplementCards=identities.map(([setId,localId,productId,officialId,folder,illustrator])=>({id:setId+'-'+localId,localId,name:'アルセウスLV.X',category:'Pokemon',rarity:setId==='Pt4'?'Rare Holo LV.X':'Promo',types:['Colorless'],dexId:[493],hp:120,stage:'LEVEL-UP',illustrator,set:japaneseSupplementSets.find(s=>s.id===setId),catalogSupplement:true,sourceUrl:'https://www.pokemon-card.com/card-search/details.php/card/'+officialId,verifiedImageUrl:`https://www.pokemon-card.com/assets/images/card_images/large/${folder}/0${officialId}_P_ARUSEUSU.gif`,verifiedImageLanguage:'ja',variants:{holo:true,normal:false,reverse:false},variants_detailed:[{type:'holo',size:'standard',variantId:'jp-'+setId+'-holo',thirdParty:{cardmarket:productId}}]}));
+export const japanesePublicProducts:Record<string,number>={'M-P-017':839255,'M-P-018':839256,'M-P-019':839257,'M-P-020':839259,'M-P-021':839263,'M-P-022':839267,...Object.fromEntries(japaneseSupplementCards.map(c=>[c.id,c.variants_detailed[0].thirdParty.cardmarket]))};
+export function mergeJapaneseCards(rows:any[]){return [...rows,...japaneseSupplementCards.filter(c=>!rows.some(r=>r.id===c.id))];}
