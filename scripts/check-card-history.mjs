@@ -19,6 +19,7 @@ const points=lastThirtyDays(data.cardPriceHistory,'AOG 9.5','2026-10-03');
 assert.equal(points.length,30);assert.equal(points.filter(p=>p.raw!==null).length,2);assert.equal(points[29].graded,239.87);
 assert.equal(lastThirtyDays(data.cardPriceHistory,'PSA 9','2026-10-03')[29].graded,null);
 const seeded=seedCardHistory({data:card(50),variant:'Standard',grading:'',fetched:'2026-10-01T12:00:00Z'});assert.equal(seeded.cardPriceHistory[0].day,'2026-10-01');
+const seededGrade=seedCardHistory({data:graded,variant:'Standard',grading:'AOG 9.5',fetched:'2026-10-01T12:00:00Z'});assert.equal(seededGrade.cardPriceHistory.find(p=>p.day==='2026-10-01').grades['AOG 9.5'],undefined);assert.equal(seededGrade.cardPriceHistory.find(p=>p.day==='2026-10-03').raw,null);
 const missing=observePrices(data,{pricing:{}},'Standard','','2026-10-04T12:00:00Z');assert.equal(missing.cardPriceHistory[2].raw,null);assert.equal(missing.cardPriceHistory[0].raw,50);
 const future=observePrices(data,card(1),'Standard','','2027-02-01T12:00:00Z');assert.equal(future.cardPriceHistory.length,1);
 console.log('Passed real daily observations, daily overwrite, missing-day gaps, grade isolation, safe legacy seed and retention.');

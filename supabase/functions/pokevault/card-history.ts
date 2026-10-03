@@ -14,7 +14,11 @@ export function observePrices(previous:any,data:any,variant:string,grading:strin
 }
 export function seedCardHistory(row:any):any{
  const data=typeof row.data==='string'?JSON.parse(row.data):row.data;
- return data.cardPriceHistory?.length?data:observePrices({},data,row.variant,row.grading,row.fetched);
+ if(data.cardPriceHistory?.length)return data;
+ const raw=observePrices({},data,row.variant,'',row.fetched),g=gradedValue(data,row.grading);
+ if(g!==null&&data.gradedQuote?.fetchedAt){const gradeOnly=observePrices({}, {gradedQuote:data.gradedQuote},row.variant,row.grading,data.gradedQuote.fetchedAt).cardPriceHistory?.[0];
+ if(gradeOnly){const same=raw.cardPriceHistory?.find((p:CardPricePoint)=>p.day===gradeOnly.day);if(same)same.grades=gradeOnly.grades;else raw.cardPriceHistory?.push(gradeOnly);raw.cardPriceHistory?.sort((a:CardPricePoint,b:CardPricePoint)=>a.day.localeCompare(b.day));}}
+ return raw;
 }
 export function lastThirtyDays(history:CardPricePoint[],grading:string,day=cardDay()){
  const last=new Date(day+'T12:00:00Z');const byDay=new Map(history.map(p=>[p.day,p]));
