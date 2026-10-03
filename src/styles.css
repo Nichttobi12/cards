@@ -41,3 +41,5 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 /* Set logos use landscape art, distinct from card previews. */
 .set-folder-art{width:120px;height:84px;flex-shrink:0}.set-cover{padding:8px}.set-cover>img,.set-cover>svg{width:100%;height:100%;object-fit:contain}.set-cover>img{filter:drop-shadow(0 2px 2px #0002)}
 @media(max-width:760px){.set-folder-art{width:94px;height:78px}.set-folder{min-height:104px}}
+
+.set-folders{grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))}.set-folder-info{min-width:0}.set-folder-info strong{overflow-wrap:normal;word-break:normal}
