@@ -50,3 +50,5 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .recovery-link{display:block;width:100%;background:transparent;color:var(--accent,#4374ee);border:0;text-decoration:underline;text-underline-offset:3px;padding:12px 8px;min-height:44px;cursor:pointer;font:inherit}.recovery-link:focus-visible{outline:2px solid currentColor;outline-offset:2px}.recovery-help{font-size:.85rem;line-height:1.5}.login-box h2{font-size:1.35rem;margin-top:24px}.login-box label small{display:block;margin-top:6px;font-weight:normal}
 
 .price-scope-note{font-size:.78rem!important;line-height:1.45;color:var(--muted);margin:10px 0 0!important}
+
+.price-coverage{display:block;margin-top:8px;font-weight:600;color:var(--ink)}

@@ -61,3 +61,10 @@ export async function withLanguagePrices(card:any,language:string){
  const id=card.id+'/'+language;let job=slots.get(id);if(!job){job=load(card,language);slots.set(id,job);}
  try{return await job;}finally{slots.delete(id);}
 }
+
+// Catalog grids read shared prices without spending one vendor call per card.
+export async function cachedLanguagePrices(card:any,language:string){
+ const row=await db().prepare('SELECT data, updated_at FROM market_quotes WHERE id = ?').bind(card.id+'/'+language).first();
+ const data=row?.data||{};
+ return {...card,...data,marketLanguage:language,languagePriceStale:!!data.languageMarketQuotes&&(data.languagePriceStatus==='error'||String(row?.updated_at).slice(0,10)!==new Date().toISOString().slice(0,10))};
+}

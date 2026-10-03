@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const temp=await mkdtemp(join(tmpdir(),'pv-language-'));
 await build({stdin:{contents:"export * from './supabase/functions/pokevault/language-prices.ts';export * from './supabase/functions/pokevault/pricing.ts';",resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',outfile:join(temp,'test.mjs')});
-const {extractLanguagePrice,matchMarketCard,quote,withLanguagePrices}=await import(join(temp,'test.mjs'));
+const {extractLanguagePrice,matchMarketCard,quote,withLanguagePrices,cachedLanguagePrices}=await import(join(temp,'test.mjs'));
 const card={id:'30th-155',localId:'155',name:'Jirachi ex',set:{name:'30th Celebration'},variants_detailed:[{type:'holo',variantId:'anniversary',stamp:['30th-anniversary']}],pricing:{cardmarket:{trend:29.22,updated:'2026-10-03'}}};
 const row={id:77,name:'Jirachi ex',card_number:155,episode:{name:'30th Celebration'},prices:{cardmarket:{currency:'EUR',lowest_near_mint:30,lowest_near_mint_DE:40,lowest_near_mint_EN:35,lowest_near_mint_JP:20}},updated_at:'2026-10-03'};
 assert.equal(matchMarketCard([row],card,card.variants_detailed[0]),row);assert.equal(matchMarketCard([row,{...row,id:78}],card,card.variants_detailed[0]),null);
@@ -25,4 +25,5 @@ globalThis.fetch=async(input,opts={})=>{const u=new URL(input),body=opts.body?JS
  if(u.hostname==='cardmarket-api-tcg.p.rapidapi.com'){providerCalls++;return Response.json({data:[row]});}throw Error('Unexpected '+u.pathname);
 };
 assert.equal((await withLanguagePrices(card,'de')).languageMarketQuotes.anniversary.price,40);assert.equal((await withLanguagePrices(card,'de')).languageMarketQuotes.anniversary.price,40);assert.equal(providerCalls,1);
+assert.equal((await cachedLanguagePrices(card,'de')).languageMarketQuotes.anniversary.price,40);assert.equal((await cachedLanguagePrices(card,'fr')).marketLanguage,'fr');assert.equal(providerCalls,1);
 console.log('Passed language pricing: exact set/number/name and printing, ambiguous matches rejected, distinct DE/EN/JP prices, general fields never treated as language prices, EUR required, wrong language isolation and persistent shared cache.');await rm(temp,{recursive:true,force:true});
