@@ -2,10 +2,11 @@ import {db,tcg} from './data.ts';
 import {cardVariants,specialVariant,variantLabel} from './variants.ts';
 declare const Deno:{env:{get(name:string):string|undefined}};
 const clean=(s:unknown)=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
+const setName=(s:unknown)=>clean(s).replace(/^(?:me(?:p|ga)evolutionblackstarpromos|mepblackstarpromos|megaevolutionpromos)$/,'megapromos').replace(/^(?:sv(?:p)?blackstarpromos|scarletvioletpromos)$/,'svpromos');
 const num=(s:unknown)=>String(s||'').split('/')[0].replace(/^0+(?=\d)/,'').toLowerCase();
 const slots=new Map<string,Promise<any>>();
 export function matchMarketCard(rows:any[],card:any,variant:any){
- const candidates=rows.filter(r=>num(r.card_number)===num(card.localId)&&clean(r.name)===clean(card.name)&&clean(r.episode?.name)===clean(card.set?.name));
+ const candidates=rows.filter(r=>num(r.card_number)===num(card.localId)&&clean(r.name)===clean(card.name)&&setName(r.episode?.name)===setName(card.set?.name));
  const onePrinting=cardVariants(card).length===1;
  const matching=candidates.filter(r=>{
   if(/reverse/i.test(variant.type))return /reverse/i.test(r.version||'');
@@ -24,15 +25,16 @@ export function extractLanguagePrice(row:any,language:string,variant:string){
 async function request(path:string,key:string){
  const day=new Date().toISOString().slice(0,10),r=await db().prepare('INSERT INTO login_attempts (id,attempts,window) VALUES (?, ?, ?)').bind('grading-provider:'+day,1,Date.now()).all();
  if(!r.results[0]||r.results[0].attempts>95)throw Error('Tageslimit der Preisquelle erreicht.');
- const response=await fetch('https://cardmarket-api-tcg.p.rapidapi.com/v1/tcgapi/'+path,{headers:{'x-rapidapi-key':key,'x-rapidapi-host':'cardmarket-api-tcg.p.rapidapi.com'},signal:AbortSignal.timeout(15000)});
- if(!response.ok)throw Error(response.status===429?'Abfragelimit erreicht.':response.status===403?'Diese Daten sind im API-Tarif nicht verfügbar.':'Preisquelle nicht erreichbar.');
+ const response=await fetch('https://cardmarket-api-tcg.p.rapidapi.com/'+path,{headers:{'x-rapidapi-key':key,'x-rapidapi-host':'cardmarket-api-tcg.p.rapidapi.com'},signal:AbortSignal.timeout(15000)});
+
+ if(!response.ok)throw Error(response.status===429?'Abfragelimit erreicht.':response.status===403?'Diese Daten sind im API-Tarif nicht verfügbar.':'Preisquelle meldet HTTP '+response.status+'.');
  return response.json() as Promise<any>;
 }
 async function load(card:any,language:string){
  const key=Deno.env.get('GRADING_RAPIDAPI_KEY');if(!key)return {...card,marketLanguage:language,languagePriceStatus:'not_configured'};
  const id=card.id+'/'+language,stored=await db().prepare('SELECT data, updated_at FROM market_quotes WHERE id = ?').bind(id).first();
  const cached=stored?.data;
- if(cached&&Date.now()-Date.parse(stored.updated_at)<86400000)return {...card,...cached,marketLanguage:language};
+ if(cached&&(cached.languagePriceStatus==='error'?Date.now()-Date.parse(stored.updated_at)<900000:String(stored.updated_at).slice(0,10)===new Date().toISOString().slice(0,10)))return {...card,...cached,marketLanguage:language};
  try{
   const identity=language==='ja'?card:await tcg('cards/'+card.id,'en');
   const game=language==='ja'?'pokemon-jp':'pokemon';
@@ -53,7 +55,7 @@ async function load(card:any,language:string){
   const data={marketLanguage:language,languageMarketQuotes:quotes,languagePriceStatus:Object.keys(quotes).length?'available':'missing'};
   await db().prepare('INSERT INTO market_quotes (id,data,updated_at) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at').bind(id,data,new Date().toISOString()).run();
   return {...card,...data};
- }catch(e){return {...card,...(cached||{}),marketLanguage:language,languagePriceStatus:'error',languagePriceMessage:e instanceof Error?e.message:'Preisabruf fehlgeschlagen.',languagePriceStale:!!cached};}
+ }catch(e){const failed={...(cached||{}),marketLanguage:language,languagePriceStatus:'error',languagePriceMessage:e instanceof Error?e.message:'Preisabruf fehlgeschlagen.',languagePriceStale:!!cached?.languageMarketQuotes};await db().prepare('INSERT INTO market_quotes (id,data,updated_at) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at').bind(id,failed,new Date().toISOString()).run().catch(()=>{});return {...card,...failed};}
 }
 export async function withLanguagePrices(card:any,language:string){
  const id=card.id+'/'+language;let job=slots.get(id);if(!job){job=load(card,language);slots.set(id,job);}
