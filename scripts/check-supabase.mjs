@@ -27,7 +27,7 @@ const meta=await handle(request('/api/vault?op=metadata&ids=me02.5-284','one'));
 assert.match(item.verifiedImageUrl,/\/284\/(high|low)\.(webp|png|jpg)$/);assert.equal(item.verifiedImageLanguage,'de');
 const fallback=await handle(request('/api/vault?op=detail&lang=de&id=me05-114','one'));const fallbackCard=await fallback.json();assert.equal(fallbackCard.id,'me05-114');assert.equal(fallbackCard.verifiedImageLanguage,'en');assert.equal(fallbackCard.verifiedImageUrl,'https://www.serebii.net/card/pitchblack/114.jpg');
 const disconnected=await (await handle(request('/api/vault?op=graded&id=sv08.5-144&grading=AOG%209.5','one'))).json();assert.equal(disconnected.status,'not_configured');assert.equal(disconnected.reference,'PSA 10');assert.equal((await handle(request('/api/vault?op=graded&id=sv08.5-144&grading=PSA%2010'))).status,401);
-const cover=await handle(request('/api/vault?op=setcover&id=me02.5','one'));assert.equal(cover.status,200);assert.ok((await cover.json()).verifiedImageUrl);
+const cover=await handle(request('/api/vault?op=setcover&id=me02.5','one'));assert.equal(cover.status,200);assert.equal((await cover.json()).name,'Erhabene Helden');
 assert.equal((await handle(request('/api/vault?op=setcover&id=me02.5'))).status,401);
 const prices=await handle(request('/api/vault?op=prices&ids=30th-001,30th-002','one'));assert.equal(prices.status,200);assert.deepEqual((await prices.json()).map(c=>c.price),[42,42]);
 assert.equal((await handle(request('/api/vault?op=prices&ids='+Array.from({length:7},(_,i)=>'30th-'+i).join(','),'one'))).status,400);

@@ -1,0 +1,18 @@
+// Explicit model assumptions, not observed average grading discounts.
+const gradeWeight=(grade:number)=>Math.pow(0.45,10-grade);
+const companyWeight:Record<string,number>={PSA:1,AOG:0.8,CGC:0.9,BGS:1.05,SGC:0.8,ACE:0.8,TAG:0.9,GSG:0.8};
+const median=(a:number[])=>{const b=[...a].sort((a,b)=>a-b),i=Math.floor(b.length/2);return b.length%2?b[i]:(b[i-1]+b[i])/2;};
+export function gradingFactor(cards:any[],targetCompany:string,targetGrade:number,sourceCompany:string,sourceGrade:number){
+ const ratios:number[]=[],seen=new Set<string>();
+ for(const card of cards){if(card.id&&seen.has(card.id))continue;if(card.id)seen.add(card.id);const tiers=card.prices?.ebay?.graded,a=tiers?.[targetCompany.toLowerCase()]?.[String(targetGrade)],b=tiers?.[sourceCompany.toLowerCase()]?.[String(sourceGrade)];if(a?.sample_size>=3&&b?.sample_size>=3&&a.median_price>0&&b.median_price>0){const ratio=a.median_price/b.median_price;if(Number.isFinite(ratio)&&ratio>=0.02&&ratio<=50)ratios.push(ratio);}}
+ const empirical=ratios.length>=3;const factor=empirical?median(ratios):gradeWeight(targetGrade)/gradeWeight(sourceGrade)*(companyWeight[targetCompany]||0.8)/(companyWeight[sourceCompany]||0.8);
+ return {factor,modelCards:empirical?ratios.length:0,modelMethod:empirical?'Median beobachteter Preisverhältnisse':'Modellannahme',modelNote:empirical?'Verhältnis aus '+ratios.length+' Vergleichskarten mit jeweils mindestens drei Verkäufen pro Bewertung.':'Noch zu wenig Preispaare: pro Notenpunkt wird der Faktor 0,45 verwendet; Anbieterfaktoren relativ zu PSA: '+targetCompany+' '+(companyWeight[targetCompany]||0.8)+' / '+sourceCompany+' '+(companyWeight[sourceCompany]||0.8)+'. Diese Faktoren sind Annahmen, keine gemessenen Marktdurchschnitte.'};
+}
+export function inferGrading(card:any,target:{referenceCompany:string,referenceGrade:number,company:string,grade:number},population:any[]=[]){
+ const tiers=card.prices?.ebay?.graded,currency=card.prices?.ebay?.currency;if(!['USD','EUR'].includes(currency))return null;
+ const sales:any[]=[];for(const [company,grades] of Object.entries(tiers||{}))for(const [grade,tier] of Object.entries(grades as any)){const t=tier as any,g=Number(grade);if(!['PSA','AOG','CGC','BGS','SGC','ACE','TAG','GSG'].includes(company.toUpperCase())||!Number.isFinite(g)||g<1||g>10||!Number.isFinite(t.median_price)||t.median_price<=0||!Number.isInteger(t.sample_size)||t.sample_size<3)continue;sales.push({company:company.toUpperCase(),grade:g,price:t.median_price,count:t.sample_size});}
+ sales.sort((a,b)=>Math.abs(a.grade-target.referenceGrade)-Math.abs(b.grade-target.referenceGrade)||Number(b.company===target.referenceCompany)-Number(a.company===target.referenceCompany)||b.count-a.count);
+ const source=sales[0];if(!source)return null;
+ const model=gradingFactor(population,target.referenceCompany,target.referenceGrade,source.company,source.grade),price=Math.round(source.price*model.factor*100)/100;if(!Number.isFinite(price)||price<=0)return null;
+ return {price,currency,sales:source.count,company:target.company,grade:target.grade,comparison:true,estimated:true,algorithm:true,reference:source.company+' '+source.grade,sourcePrice:source.price,...model,estimateReason:'Berechneter Schätzwert, kein belegter Verkauf in '+target.company+' '+target.grade+'. Basis: '+source.company+' '+source.grade+' ('+source.count+' Vergleichsverkäufe), Faktor '+model.factor.toFixed(3)+'. '+model.modelNote};
+}

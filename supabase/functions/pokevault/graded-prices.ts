@@ -1,3 +1,5 @@
+import {quote as rawQuote} from './pricing.ts';
+import {inferGrading,gradingFactor} from './grading-model.ts';
 import {db} from './data.ts';
 import {catalog} from './catalog.ts';
 import {parseGrade} from './grading.ts';
@@ -5,10 +7,11 @@ import {selectedVariant,specialVariant,variantLabel} from './variants.ts';
 declare const Deno:{env:{get(name:string):string|undefined}};
 const cache=new Map<string,{expires:number,data:any}>();
 const clean=(s:unknown)=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
-const number=(s:unknown)=>String(s||'').split('/')[0].replace(/^0+(?=\d)/,'').toLowerCase();
+const number=(s:unknown)=>String(s||'').split('/')[0].replace(/^(MEP|SVP)[ -]*/i,'').replace(/^0+(?=\d)/,'').toLowerCase();
+const setName=(s:unknown)=>clean(s).replace(/^me(?:p|ga)evolutionblackstarpromos$/,'megapromos').replace(/^mepblackstarpromos$/,'megapromos').replace(/^megaevolutionpromos$/,'megapromos').replace(/^sv(?:p)?blackstarpromos$/,'svpromos').replace(/^scarletvioletpromos$/,'svpromos');
 export function matchGradedCard(rows:any[],card:any,variant?:any){
  // Exact printed number, name and set; never select the cheapest/first fuzzy match.
- const matches=rows.filter(r=>(specialVariant(variant)?clean(r.version)===clean(variantLabel(variant)):!r.version)&&number(r.card_number)===number(card.localId)&&clean(r.name)===clean(card.name)&&clean(r.episode?.name)===clean(card.set?.name));
+ const matches=rows.filter(r=>(specialVariant(variant)?clean(r.version)===clean(variantLabel(variant)):!r.version)&&number(r.card_number)===number(card.localId)&&clean(r.name)===clean(card.name)&&setName(r.episode?.name)===setName(card.set?.name));
  return matches.length===1?matches[0]:null;
 }
 export function extractGradedPrice(card:any,grading:string){
@@ -37,6 +40,13 @@ export function retainGradedQuote(previous:any,next:any,grading:string,variant:s
  if(previous?.status==='available'&&previous.appliedGrading===grading&&(!previous.variant||previous.variant===variant))return {...previous,stale:true,updateMessage:next?.message||'Aktualisierung nicht verfügbar.'};
  return next;
 }
+export function portfolioGradingEstimate(rows:any[],card:any,grading:string,variant:string){
+ const target=parseGrade(grading),raw=rawQuote(card,variant).price;if(!target||raw===null)return null;
+ const groups=new Map<string,any[]>();for(const row of rows){let data:any;try{data=typeof row.data==='string'?JSON.parse(row.data):row.data;}catch{continue;}const q=data?.gradedQuote,p=rawQuote(data,row.variant).price,ref=String(q?.reference||'').match(/^(PSA|AOG|CGC|BGS|SGC|TAG|ACE|GSG) (10|[1-9](?:\.5)?)$/);if(!ref||q.status!=='available'||q.algorithm||q.stale||p===null||!(q.priceEur>0)||q.sales<3||Date.now()-Date.parse(q.fetchedAt)>30*86400000)continue;const ratio=q.priceEur/p;if(ratio<0.1||ratio>100)continue;const key=ref[1]+' '+ref[2],group=groups.get(key)||[];if(!group.some(x=>x.id===data.id))group.push({id:data.id,ratio,sales:q.sales});groups.set(key,group);}
+ const candidates=[...groups].filter(([,items])=>items.length>=3).sort((a,b)=>Math.abs(Number(a[0].split(' ')[1])-target.referenceGrade)-Math.abs(Number(b[0].split(' ')[1])-target.referenceGrade));const group=candidates[0];if(!group)return null;
+ const [reference,items]=group,[company,grade]=reference.split(' '),ratios=items.map(x=>x.ratio).sort((a,b)=>a-b),i=Math.floor(ratios.length/2),premium=ratios.length%2?ratios[i]:(ratios[i-1]+ratios[i])/2,adjustment=gradingFactor([],target.referenceCompany,target.referenceGrade,company,Number(grade)),factor=premium*adjustment.factor,price=Math.round(raw*factor*100)/100;
+ return {price,currency:'EUR',sales:items.reduce((s,x)=>s+x.sales,0),comparison:true,estimated:true,algorithm:true,reference:reference+' · andere Karten',sourcePrice:raw,factor,modelCards:items.length,modelMethod:'Median des Grading-Aufschlags anderer Karten',estimateReason:'Berechneter Schätzwert, kein belegter Verkauf dieser Karte in '+grading+'. Basis: ungegradeter Cardmarket-Richtpreis '+raw.toFixed(2)+' € × Faktor '+factor.toFixed(3)+'. Grading-Aufschlag aus '+items.length+' anderen Karten mit '+reference+'-Vergleichsverkäufen; keine kartenspezifischen Grading-Verkäufe. '+(adjustment.factor!==1?adjustment.modelNote:'Diese Vergleichskarten können ein anderes Nachfrage- und Grading-Profil haben.')};
+}
 const cardCache=new Map<string,{expires:number,data:any}>();
 async function provider(path:string,key:string):Promise<any>{
  // Atomic shared daily budget across all Edge instances. Fail closed on DB errors.
@@ -56,19 +66,18 @@ export async function gradedPrice(id:string,language:string,grading:string,varia
  try{
  const card=await catalog('cards/'+id,'en');
  const printing=variant?selectedVariant(card,variant):undefined;
+ const fallback=async()=>portfolioGradingEstimate((await db().prepare('SELECT data, variant, grading FROM cards').all()).results,await catalog('cards/'+id,language),grading,variant||selectedVariant(card,'Standard')?.value||card.variants_detailed?.[0]?.variantId||'Standard');
  if(variant&&!printing)return {status:'unmatched',message:'Kartenvariante in der Grading-Quelle nicht zuordenbar.'};
- const detailKey=id+'/'+variant,prior=cardCache.get(detailKey);let detail:any;
+ const detailKey=id+'/'+variant,prior=cardCache.get(detailKey);let detail:any,quote:any;
  if(prior&&prior.expires>Date.now())detail=prior.data;
  else {const response=await provider('cards/search?search='+encodeURIComponent(card.name),key);
  const candidate=matchGradedCard(Array.isArray(response.data)?response.data:[],card,printing);
- if(!candidate)return {status:'unmatched',reference,comparison:grade.comparison,message:'Keine eindeutige Zuordnung von Karte, Set, Nummer und Variante in der Grading-Quelle.'};
- detail=candidate.prices?.ebay?candidate:(await provider('cards/'+encodeURIComponent(candidate.id),key)).data;
- if(cardCache.size>300)cardCache.clear();cardCache.set(detailKey,{expires:Date.now()+86400000,data:detail});}
- const quote=comparableGradedPrice(detail,grading);
+ if(!candidate){quote=await fallback();if(!quote)return {status:'unmatched',reference,comparison:grade.comparison,message:'Keine eindeutige Grading-Zuordnung und zu wenig Vergleichsdaten für eine Modellschätzung.'};detail={};}else{detail=candidate.prices?.ebay?candidate:(await provider('cards/'+encodeURIComponent(candidate.id),key)).data;if(cardCache.size>300)cardCache.clear();cardCache.set(detailKey,{expires:Date.now()+86400000,data:detail});}}
+ quote=quote||comparableGradedPrice(detail,grading)||inferGrading(detail,grade,[...cardCache.values()].map(c=>c.data))||await fallback();
  if(!quote)return {status:'missing',reference,comparison:grade.comparison,message:'Keine belegten Verkäufe für diese Note oder ausreichend vergleichbare Verkäufe anderer Grading-Firmen.'};
  let priceEur:number|null=quote.currency==='EUR'?quote.price:null,fxDate:string|null=null;
  if(priceEur===null){try{const r=await fetch('https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml',{signal:AbortSignal.timeout(8000)});if(r.ok){const xml=await r.text(),rate=Number(xml.match(/currency=['"]USD['"]\s+rate=['"]([\d.]+)['"]/)?.[1]);fxDate=xml.match(/time=['"]([\d-]+)['"]/)?.[1]||null;if(rate>0&&fxDate&&Date.now()-Date.parse(fxDate)<7*86400000)priceEur=Math.round(quote.price/rate*100)/100;}}catch{}}
- const result={appliedGrading:grading,status:'available',reference:quote.reference,comparison:quote.comparison,estimated:true,estimateReason:[quote.estimateReason,'Internationaler Verkaufsvergleich: die Sprache wird von der Quelle nicht getrennt ausgewiesen.'].filter(Boolean).join(' '),variant,price:quote.price,currency:quote.currency,priceEur,sales:quote.sales,source:'eBay-Verkaufsmedian via CMAPI',fetchedAt:new Date().toISOString(),sourceUpdated:detail.updated_at||null,fxDate,languageScope:'international',languageNote:'Die Quelle weist die Sprache der Grading-Verkäufe nicht getrennt aus. Internationaler Vergleichswert; kein spezifischer deutscher Kartenpreis.'};
+ const result={appliedGrading:grading,status:'available',reference:quote.reference,comparison:quote.comparison,estimated:true,estimateReason:[quote.estimateReason,'Internationaler Verkaufsvergleich: die Sprache wird von der Quelle nicht getrennt ausgewiesen.'].filter(Boolean).join(' '),variant,price:quote.price,currency:quote.currency,priceEur,sales:quote.sales,algorithm:!!quote.algorithm,modelFactor:quote.factor||null,modelMethod:quote.modelMethod||null,modelCards:quote.modelCards||0,sourcePrice:quote.sourcePrice||null,source:quote.algorithm?'Modellschätzung aus eBay-Vergleichsverkäufen via CMAPI':'eBay-Verkaufsmedian via CMAPI',fetchedAt:new Date().toISOString(),sourceUpdated:detail.updated_at||null,fxDate,languageScope:'international',languageNote:'Die Quelle weist die Sprache der Grading-Verkäufe nicht getrennt aus. Internationaler Vergleichswert; kein spezifischer deutscher Kartenpreis.'};
  if(cache.size>300)cache.clear();cache.set(cacheKey,{expires:Date.now()+86400000,data:result});return result;
  }catch(e){return {status:'unavailable',reference,comparison:grade.comparison,message:e instanceof Error?e.message:'Grading-Preisabruf fehlgeschlagen.'};}
 }
