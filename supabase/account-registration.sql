@@ -1,5 +1,5 @@
 alter table public.portal_accounts drop constraint if exists portal_accounts_username_check;
-alter table public.portal_accounts add constraint portal_accounts_username_check check(username ~ '^[A-Za-z0-9_]{3,30}$');
+alter table public.portal_accounts add constraint portal_accounts_username_check check(username ~ '^[A-Za-z0-9_!$]{3,30}$');
 create unique index if not exists portal_accounts_username_lower on public.portal_accounts(lower(username));
 create or replace function public.portal_register_account(account_id uuid,account_username text,account_email text) returns void language plpgsql security invoker set search_path='' as $$
 declare account_slot smallint;
