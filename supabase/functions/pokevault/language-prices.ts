@@ -34,7 +34,7 @@ async function load(card:any,language:string){
  const key=Deno.env.get('GRADING_RAPIDAPI_KEY');if(!key)return {...card,marketLanguage:language,languagePriceStatus:'not_configured'};
  const id=card.id+'/'+language,stored=await db().prepare('SELECT data, updated_at FROM market_quotes WHERE id = ?').bind(id).first();
  const cached=stored?.data;
- if(cached&&(cached.languagePriceStatus==='error'?Date.now()-Date.parse(stored.updated_at)<900000:String(stored.updated_at).slice(0,10)===new Date().toISOString().slice(0,10)))return {...card,...cached,marketLanguage:language};
+ if(cached&&cached.languagePriceStatus&&(cached.languagePriceStatus==='error'?Date.now()-Date.parse(stored.updated_at)<900000:String(stored.updated_at).slice(0,10)===new Date().toISOString().slice(0,10)))return {...card,...cached,marketLanguage:language};
  try{
   const identity=language==='ja'?card:await tcg('cards/'+card.id,'en');
   const game=language==='ja'?'pokemon-jp':'pokemon';

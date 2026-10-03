@@ -12,7 +12,7 @@ async function rest(path:string,options:RequestInit={}):Promise<any[]>{
  if(!r.ok){console.error('Database operation failed',r.status);throw Error('Datenbankabfrage fehlgeschlagen.');}
  return r.status===204?[]:r.json() as Promise<any[]>;
 }
-const tables=new Set(['collections','cards','portfolio_snapshots','portal_accounts','login_attempts','refresh_jobs','card_images','photo_submissions','market_quotes']);
+const tables=new Set(['collections','cards','portfolio_snapshots','portal_accounts','login_attempts','refresh_jobs','card_images','photo_submissions','market_quotes','price_submissions']);
 // Compatibility for the small, fixed set of internal queries used by this portal.
 // SQL never comes from a request, and is never executed as arbitrary SQL.
 class Statement{
@@ -43,6 +43,6 @@ export async function storage(path:string,options:RequestInit={}):Promise<any>{
  if(!r.ok)throw Error('Foto konnte nicht gespeichert oder geladen werden.');return r.json();
 }
 
-export async function rpc(name:string,body:any){if(!['portal_review_photo','portal_register_account'].includes(name))throw Error('Unsupported operation');return rest('rpc/'+name,{method:'POST',body:JSON.stringify(body)});}
+export async function rpc(name:string,body:any){if(!['portal_review_photo','portal_register_account','portal_review_price'].includes(name))throw Error('Unsupported operation');return rest('rpc/'+name,{method:'POST',body:JSON.stringify(body)});}
 
 export async function adminAuth(path:string,options:RequestInit){if(path!=='admin/users')throw Error('Unsupported auth action');const key=adminKey();return fetch(env.SUPABASE_URL+'/auth/v1/'+path,{...options,headers:{apikey:key,'Content-Type':'application/json',...(key.startsWith('eyJ')?{Authorization:'Bearer '+key}:{})},signal:AbortSignal.timeout(15000)});}
